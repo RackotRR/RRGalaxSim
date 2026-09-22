@@ -17,34 +17,29 @@ void ParticlesContext::fill_device_data(
 
 
 
-tl::expected<sParticlesContext_, std::string>
+sParticlesContext_
 initialize_particles_context_(
     const common::ParticlesData& particles_data
 )
 {
     spdlog::info("Initialize device particles context");
 
-    try {
-        sParticlesContext_ context = std::make_shared<ParticlesContext_>();
-        context->pos_ = particles_data.pos;
-        context->vel_ = particles_data.vel;
-        context->mass_ = particles_data.mass;
-        context->soft2_ = particles_data.soft2;
+    sParticlesContext_ context = std::make_shared<ParticlesContext_>();
+    context->pos_ = particles_data.pos;
+    context->vel_ = particles_data.vel;
+    context->mass_ = particles_data.mass;
+    context->soft2_ = particles_data.soft2;
 
-        const size_t N = particles_data.info.ntotal;
+    const size_t N = particles_data.info.ntotal;
 
-        context->acc_ = CuDarray<double3>(N);
-        context->vel_predicted_ = CuDarray<double3>(N);
-        context->grav_ = CuDarray<double>(N);
+    context->acc_ = CuDarray<double3>(N);
+    context->vel_predicted_ = CuDarray<double3>(N);
+    context->grav_ = CuDarray<double>(N);
 
-        context->info = particles_data.info;
-        RR::CUDA::CuCopyToSymbol(context->info, rrgsim::common::particles_info_, RR::CUDA::ToDevice);
+    context->info = particles_data.info;
+    RR::CUDA::CuCopyToSymbol(context->info, rrgsim::common::particles_info_, RR::CUDA::ToDevice);
 
-        return context;
-    }
-    catch(const std::exception& ex) {
-        return tl::make_unexpected(ex.what());
-    }
+    return context;
 }
 
 sParticlesContext

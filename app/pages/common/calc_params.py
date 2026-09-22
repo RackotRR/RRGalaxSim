@@ -177,7 +177,7 @@ def make_sim_params_table(sim_params : dict):
 
 GRID_NX_ID = "nx"
 GRID_DX_ID = "dx"
-GRID_BC_PART_ID = "bc_part"
+GRID_BC_PART_ID = "bc_frac"
 def make_grid_params(grid_params : dict):
     with st.expander("Параметры сетки"):
         grid_params[GRID_NX_ID] = st.number_input(

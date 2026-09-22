@@ -1,4 +1,6 @@
 #include "co_grid_context.h"
+#include "co_device_utils.cuh"
+#include "co_device_structs.cuh"
 
 namespace rrgsim::common {
 
@@ -15,7 +17,21 @@ initialize_grid_context_(
     GridInfo grid_info
 )
 {
-    return nullptr;
+    using RR::CUDA::CuDarray;
+    sGridContext_ context_ = std::make_shared<GridContext_>();
+
+    size_t nx3 = rrgsim::common::cube(grid_info.nx);
+
+    context_->mass_ = CuDarray<double>(nx3);
+    context_->grav_prev_ = CuDarray<double>(nx3);
+    context_->grav_curr_ = CuDarray<double>(nx3);
+    context_->grav_next_ = CuDarray<double>(nx3);
+    context_->acc_ = CuDarray<double3>(nx3);
+
+    context_->info = grid_info;
+    RR::CUDA::CuCopyToSymbol(context_->info, rrgsim::common::grid_info_, RR::CUDA::ToDevice);
+
+    return context_;
 }
 
 sGridContext
@@ -23,7 +39,12 @@ initialize_grid_context(
     GridInfo grid_info
 )
 {
-    return nullptr;
+    sGridContext context = std::make_shared<GridContext>();
+
+    size_t nx3 = rrgsim::common::cube(grid_info.nx);
+    context->grav = std::vector<double>(nx3);
+    context->mass = std::vector<double>(nx3);
+    return context;
 }
 
 } // namespace rrgsim::common

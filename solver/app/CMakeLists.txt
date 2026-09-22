@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.29)
 project(rrgsim CXX CUDA)
 
 add_executable(${PROJECT_NAME}
@@ -18,4 +18,8 @@ target_link_libraries(${PROJECT_NAME}
         rrgsim_common
         rrgsim_io
         rrgsim_nbody
+)
+set_target_properties(${PROJECT_NAME}
+    PROPERTIES
+        CUDA_RESOLVE_DEVICE_SYMBOLS ON
 )

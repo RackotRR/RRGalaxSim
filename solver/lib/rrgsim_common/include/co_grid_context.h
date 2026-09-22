@@ -12,6 +12,19 @@
 namespace rrgsim::common {
     using RR::CUDA::CuDarray;
 
+    namespace detail {
+        struct CellInfo{
+            int count; // число частиц в ячейке
+            int start_id; // накопленная сумма частиц (префиксная сумма) - идекс в массиве частиц
+        };
+
+        struct ParticleCellInfo {
+            int cell_id; // индекс ячейки
+            int id_in_cell; // индекс частицы в ячейке
+        };
+    } // namespace detail
+
+
     // контекст расчёта на GPU
     struct GridContext_ {
         double time = 0.; // current time
@@ -22,7 +35,12 @@ namespace rrgsim::common {
         CuDarray<double> grav_next_; // cell gravitational potential (GPU)
         CuDarray<double3> acc_; // acceleration (GPU)
 
-        GridInfo grid_info;
+        CuDarray<detail::ParticleCellInfo> particles_cell_info_;
+        CuDarray<detail::CellInfo> cell_info_;
+        CuDarray<int> cell_particles_count_;
+        CuDarray<int> particles_in_block_;
+
+        GridInfo info;
     };
     using sGridContext_ = std::shared_ptr<GridContext_>;
 

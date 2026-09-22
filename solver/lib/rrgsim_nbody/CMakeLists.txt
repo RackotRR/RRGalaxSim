@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.29)
 project(rrgsim_nbody LANGUAGES CXX CUDA)
 
 find_package(CUDAToolkit REQUIRED)
@@ -7,6 +7,7 @@ find_package(CCCL REQUIRED COMPONENTS libcudacxx)
 # библиотека с общим кодом
 add_library(${PROJECT_NAME} STATIC
     src/nbody.cu
+    src/p2mesh.cu
 )
 
 target_include_directories(${PROJECT_NAME}

@@ -1,13 +1,14 @@
 #pragma once
-#include <limits>
+#include <co_device_structs.cuh>
 
 namespace rrgsim::common {
 
-    constexpr double NAN_VALUE = std::numeric_limits<double>::quiet_NaN();
     struct SimParams {
         double time_max = NAN_VALUE;
         double dt_save = NAN_VALUE;
         double dt_dynamics = NAN_VALUE;
+
+        bool use_wave_model = false;
     };
 
 

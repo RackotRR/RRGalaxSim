@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+"""
+Модуль для взаимодействия с обёрткой солвера
+"""
+
 import json
 import os
 import subprocess

@@ -3,6 +3,7 @@
 #include <spdlog/spdlog.h>
 
 #include "io_json.h"
+#include <RR/CUDA/CuCommon.cuh>
 
 namespace rrgsim::common {
     void to_json(nlohmann::json& j, const SimParams& sim_params) {
@@ -30,6 +31,22 @@ namespace rrgsim::common {
         double bc_frac = j.at("bc_frac").get<double>();
         grid_info.sim_l = (1. - bc_frac) * grid_info.domain_l;
         grid_info.bc_l = 0.5 * bc_frac * grid_info.domain_l;
+
+        grid_info.domain_max = 0.5 * grid_info.domain_l;
+        grid_info.domain_min = -0.5 * grid_info.domain_l;
+    }
+
+    void to_json(nlohmann::json& j, const WaveParams& wave_params) {
+        j.at("diss_base") = wave_params.diss_base;
+        j.at("diss_extra") = wave_params.diss_extra;
+        j.at("wave_speed") = wave_params.wave_speed;
+        j.at("setup_iterations") = wave_params.setup_iterations;
+    }
+    void from_json(const nlohmann::json& j, WaveParams& wave_params) {
+        j.at("diss_base").get_to(wave_params.diss_base);
+        j.at("diss_extra").get_to(wave_params.diss_extra);
+        j.at("wave_speed").get_to(wave_params.wave_speed);
+        j.at("setup_iterations").get_to(wave_params.setup_iterations);
     }
 } // namespace rrgsim::common
 
@@ -101,6 +118,29 @@ namespace rrgsim::io {
         }
     }
 
+    void validate_dependent_fields(ParsedParams& parsed) {
+        if (parsed.mb_grid_info && parsed.mb_wave_params) {
+            parsed.sim_params.use_wave_model = true;
+
+            // выводим шаг по времени из условия CFL
+            double dx = parsed.mb_grid_info->dx;
+            double c = parsed.mb_wave_params->wave_speed;
+            constexpr double DIM = 3;
+            parsed.mb_wave_params->dt = 0.5 * dx / (c * std::sqrt(DIM));
+
+            RR::CUDA::CuCopyToSymbol(
+                parsed.mb_wave_params.value(),
+                rrgsim::common::wave_params_,
+                RR::CUDA::ToDevice
+            );
+        }
+
+        spdlog::debug(
+            parsed.sim_params.use_wave_model
+                ? "Use wave model"
+                : "Don't use wave model"
+        );
+    }
 
     tl::expected<ParsedParams, std::string>
     parse_params_json(const std::filesystem::path& path) {
@@ -112,7 +152,7 @@ namespace rrgsim::io {
 
             bool succeed =
                 parse_opt_json_object(
-                    "grid_info",
+                    "grid_params",
                     parsed.mb_grid_info,
                     json
                 )
@@ -127,9 +167,15 @@ namespace rrgsim::io {
                     "ini_params",
                     parsed.galaxy_data,
                     json
+                )
+                && parse_opt_json_object(
+                    "wave_params",
+                    parsed.mb_wave_params,
+                    json
                 );
 
             if (succeed) {
+                validate_dependent_fields(parsed);
                 spdlog::info("Params json parsed successfully");
                 return parsed;
             }

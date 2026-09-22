@@ -1,0 +1,119 @@
+#pragma once
+#include <cuda_runtime.h>
+
+#include <co_device_utils.cuh>
+#include <co_device_structs.cuh>
+
+#include <cuda/std/algorithm>
+
+namespace rrgsim::nbody {
+	using rrgsim::common::BLOCK_SIZE;
+	using rrgsim::common::particles_info_;
+	using rrgsim::common::grid_info_;
+	using rrgsim::common::wave_params_;
+	using rrgsim::common::cube;
+	using rrgsim::common::dot;
+
+
+__global__ void wave_diss_iteration(
+    double* phi_new,
+    const double* phi,
+    const double* phi_old,
+    const double* mass
+)
+{
+	const int NX =              grid_info_.nx;
+	const double DX =           grid_info_.dx;
+	const double SIM_L =        grid_info_.sim_l;
+	const double BC_L =         grid_info_.bc_l;
+	const double C =            wave_params_.wave_speed;
+	const double DT =           wave_params_.dt;
+	const double DISS_BASE =    wave_params_.diss_base;
+	const double DISS_EXTRA =   wave_params_.diss_extra;
+
+    int ix = threadIdx.x + blockIdx.x * blockDim.x;
+    int iy = threadIdx.y + blockIdx.y * blockDim.y;
+    int iz = threadIdx.z + blockIdx.z * blockDim.z;
+
+    int is_valid_idx =
+           ix < NX
+        && iy < NX
+        && iz < NX;
+    if (!is_valid_idx) return;
+
+
+    double x = ix * DX;
+    double y = iy * DX;
+    double z = iz * DX;
+
+	double rho = mass[AT(ix, iy, iz)] / (DX * DX * DX);
+	const double G = 1.;
+	double f = 4 * PI * G * rho;
+
+    double diss = DISS_BASE;
+#define _DISS_FUNC(x) (DISS_EXTRA * (x) * (x))
+
+    if (x > -(SIM_L - BC_L)) {
+        const double x_right = SIM_L - BC_L;
+        diss += _DISS_FUNC(fabs(x - x_right));
+    }
+    else if (x < -(SIM_L - BC_L)) {
+        const double x_left = -(SIM_L - BC_L);
+        diss += _DISS_FUNC(fabs(x - x_left));
+    }
+
+    if (y > (SIM_L - BC_L)) {
+        const double y_top = SIM_L - BC_L;
+        diss += _DISS_FUNC(fabs(y - y_top));
+    }
+    else if (y < -(SIM_L - BC_L)) {
+        const double y_bottom = -(SIM_L - BC_L);
+        diss += _DISS_FUNC(fabs(y - y_bottom));
+    }
+
+    if (z > (SIM_L - BC_L)) {
+        const double z_far = SIM_L - BC_L;
+        diss += _DISS_FUNC(fabs(z - z_far));
+    }
+    else if (z < -(SIM_L - BC_L)) {
+        const double z_near = -(SIM_L - BC_L);
+        diss += _DISS_FUNC(fabs(z - z_near));
+    }
+
+
+#define _DIM 3
+#define _CSQR (C * C)
+#define _DT2 (DT * DT)
+#define _DX2 (DX * DX)
+#define _Q (diss * C * DT * 0.5)
+#define _W (1 + _Q)
+#define _K (_CSQR * _DT2 / _DX2)
+#define _K_MAIN (_K / _W)
+#define _K_F (-_CSQR * _DT2 / _W)
+#define _K_ACTUAL (2 * (1. - _DIM * _K) / _W)
+#define _K_OLD ((_Q - 1.) / _W)
+
+#define _IS_I_EDGE(i) (i == 0 || i == NX - 1)
+#define _IS_X_EDGE _IS_I_EDGE(ix)
+#define _IS_Y_EDGE _IS_I_EDGE(iy)
+#define _IS_Z_EDGE _IS_I_EDGE(iz)
+
+    if (_IS_X_EDGE || _IS_Y_EDGE || _IS_Z_EDGE) {
+        phi_new[AT(ix, iy, iz)] = 0.;
+    }
+    else {
+        phi_new[AT(ix, iy, iz)] =
+            phi[AT(ix - 1, iy, iz)] * _K_MAIN +
+            phi[AT(ix + 1, iy, iz)] * _K_MAIN +
+            phi[AT(ix, iy - 1, iz)] * _K_MAIN +
+            phi[AT(ix, iy + 1, iz)] * _K_MAIN +
+            phi[AT(ix, iy, iz - 1)] * _K_MAIN +
+            phi[AT(ix, iy, iz + 1)] * _K_MAIN +
+            phi[AT(ix, iy, iz)] * _K_ACTUAL +
+            phi_old[AT(ix, iy, iz)] * _K_OLD +
+            f * _K_F;
+    }
+}
+
+
+}

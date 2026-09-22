@@ -43,7 +43,7 @@ namespace rrgsim::common {
     using sParticlesContext = std::shared_ptr<ParticlesContext>;
 
 
-    tl::expected<sParticlesContext_, std::string>
+    sParticlesContext_
     initialize_particles_context_(
         const common::ParticlesData& particles_data
     );

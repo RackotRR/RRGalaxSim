@@ -1,6 +1,7 @@
 #include <co_sim_params.h>
 #include <co_particles.h>
 #include <co_particles_context.h>
+#include <co_grid_context.h>
 #include <co_device_utils.cuh>
 
 #include "io_particles.h"
@@ -8,22 +9,18 @@
 #include "io_handler.h"
 
 #include <fstream>
+#include <numeric>
 
 #include "rrgsim_log.h"
 #include "rrgsim_conservation.h"
 #include "nbody.h"
+#include "p2mesh.h"
 
-void integrate(
+void integrate_nbody(
     rrgsim::common::ParticlesData particles_data,
     rrgsim::common::SimParams sim_params
 ) {
-    auto expected_context_ = rrgsim::common::initialize_particles_context_(particles_data);
-    if (false == expected_context_.has_value()) {
-        spdlog::error("Initialization error: {}", expected_context_.error());
-        return;
-    }
-
-    auto particles_context_ = std::move(expected_context_).value();
+    auto particles_context_ = rrgsim::common::initialize_particles_context_(particles_data);
     auto particles_context = initialize_particles_context(std::move(particles_data));
     rrgsim::nbody::nbody_grav(
         particles_context_,
@@ -80,6 +77,31 @@ void integrate(
     }
 }
 
+void check_grid(
+    rrgsim::common::ParticlesData particles_data,
+    rrgsim::common::GridInfo grid_info
+)
+{
+    auto particles_context_ = rrgsim::common::initialize_particles_context_(particles_data);
+    auto grid_context_ = rrgsim::common::initialize_grid_context_(grid_info);
+    auto grid_context = rrgsim::common::initialize_grid_context(grid_info);
+
+    rrgsim::nbody::convert_particles_to_grid(
+        particles_context_,
+        grid_context_
+    );
+
+    grid_context->fill_device_data(grid_context_);
+
+
+    double mass_grid = std::accumulate(
+        grid_context->mass.begin(),
+        grid_context->mass.end(),
+        0.
+    );
+    spdlog::info("Mass in grid: {}", mass_grid);
+}
+
 int main(int argc, const char** argv) {
     if (argc < 2) {
         return 1;
@@ -105,10 +127,14 @@ int main(int argc, const char** argv) {
         }
 
         try {
-            ::integrate(
+            check_grid(
                 std::move(expected_particles_data).value(),
-                std::move(parsed.sim_params)
+                std::move(parsed.mb_grid_info).value()
             );
+            // ::integrate_nbody(
+            //     std::move(expected_particles_data).value(),
+            //     std::move(parsed.sim_params)
+            // );
         }
         catch (const std::exception& ex) {
             spdlog::error("Exception: {}", ex.what());

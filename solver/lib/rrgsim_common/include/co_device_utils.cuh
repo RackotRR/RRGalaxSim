@@ -57,4 +57,6 @@ double cube(double x) {
 	return x * x * x;
 }
 
+#define AT(x, y, z) ((x) + (y) * (NX) + (z) * (NX) * (NX))
+
 } // namespace rrgsim::common

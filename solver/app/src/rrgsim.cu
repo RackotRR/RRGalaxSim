@@ -134,14 +134,14 @@ int main(int argc, const char** argv) {
         }
 
         try {
-            check_grid(
-                std::move(expected_particles_data).value(),
-                std::move(parsed.mb_grid_info).value()
-            );
-            // ::integrate_nbody(
+            // check_grid(
             //     std::move(expected_particles_data).value(),
-            //     std::move(parsed.sim_params)
+            //     std::move(parsed.mb_grid_info).value()
             // );
+            ::integrate_nbody(
+                std::move(expected_particles_data).value(),
+                std::move(parsed.sim_params)
+            );
         }
         catch (const std::exception& ex) {
             spdlog::error("Exception: {}", ex.what());

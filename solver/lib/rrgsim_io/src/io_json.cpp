@@ -3,7 +3,6 @@
 #include <spdlog/spdlog.h>
 
 #include "io_json.h"
-#include <RR/CUDA/CuCommon.cuh>
 
 namespace rrgsim::common {
     void to_json(nlohmann::json& j, const SimParams& sim_params) {
@@ -127,12 +126,6 @@ namespace rrgsim::io {
             double c = parsed.mb_wave_params->wave_speed;
             constexpr double DIM = 3;
             parsed.mb_wave_params->dt = 0.5 * dx / (c * std::sqrt(DIM));
-
-            RR::CUDA::CuCopyToSymbol(
-                parsed.mb_wave_params.value(),
-                rrgsim::common::wave_params_,
-                RR::CUDA::ToDevice
-            );
         }
 
         spdlog::debug(

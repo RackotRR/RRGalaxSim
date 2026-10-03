@@ -16,3 +16,9 @@
 [submodule "solver/extern/csv-parser/csv-parser"]
 	path = solver/extern/csv-parser/csv-parser
 	url = https://github.com/vincentlaucsb/csv-parser.git
+[submodule "solver/extern/RR/RR-CUDA"]
+	path = solver/extern/RR/RR-CUDA
+	url = https://github.com/RackotRR/RR-CUDA.git
+[submodule "solver/extern/range-v3/range-v3"]
+	path = solver/extern/range-v3/range-v3
+	url = https://github.com/ericniebler/range-v3.git

@@ -6,8 +6,6 @@
 
 #include <co_grid_context.h>
 
-#include <cuda/std/algorithm>
-
 namespace rrgsim::nbody {
     using rrgsim::common::particles_info_;
     using rrgsim::common::grid_info_;
@@ -44,15 +42,15 @@ __global__ void assignParticlesToCells(
 
     // Вычисление индексов ячейки
     int nx = grid_info_.nx;
-    int ix = cuda::std::clamp(
+    int ix = rrgsim::common::clamp(
         (int)((p.x - grid_info_.domain_min) / grid_info_.dx),
         (int)0,
         (int)(nx - 1));
-    int iy = cuda::std::clamp(
+    int iy = rrgsim::common::clamp(
         (int)((p.y - grid_info_.domain_min) / grid_info_.dx),
         (int)0,
         (int)(nx - 1));
-    int iz = cuda::std::clamp(
+    int iz = rrgsim::common::clamp(
         (int)((p.z - grid_info_.domain_min) / grid_info_.dx),
         (int)0,
         (int)(nx - 1));

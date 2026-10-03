@@ -4,8 +4,6 @@
 #include <co_device_utils.cuh>
 #include <co_device_structs.cuh>
 
-#include <cuda/std/algorithm>
-
 namespace rrgsim::nbody {
 	using rrgsim::common::BLOCK_SIZE;
 	using rrgsim::common::particles_info_;

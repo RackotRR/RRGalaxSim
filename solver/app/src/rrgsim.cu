@@ -119,6 +119,13 @@ int main(int argc, const char** argv) {
             return 0;
         }
         rrgsim::io::ParsedParams parsed = std::move(expected_parsed_params).value();
+        if (parsed.mb_grid_info && parsed.mb_wave_params) {
+            RR::CUDA::CuCopyToSymbol(
+                parsed.mb_wave_params.value(),
+                rrgsim::common::wave_params_,
+                RR::CUDA::ToDevice
+            );
+        }
 
         auto expected_particles_data = rrgsim::io::read_simple_particles_data(parsed.galaxy_data);
         if (false == expected_particles_data.has_value()) {

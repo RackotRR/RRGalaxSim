@@ -18,6 +18,15 @@ namespace rrgsim::io {
 
         static void setup(std::filesystem::path work_dir);
 
+        void append_table(
+            std::string_view tag,
+            std::initializer_list<TagValue> items
+        ) const;
+
+    private:
+        IOHandler() = default;
+
+
         void fill_in_header(
             std::ofstream& stream,
             std::initializer_list<TagValue> items
@@ -26,13 +35,8 @@ namespace rrgsim::io {
             std::ofstream& stream,
             std::initializer_list<TagValue> items
         ) const;
-        void append_table(
-            std::string_view tag,
-            std::initializer_list<TagValue> items
-        ) const;
 
-    private:
-        IOHandler() = default;
+
         std::filesystem::path work_dir;
 
         mutable std::unordered_set<std::string_view> filled;

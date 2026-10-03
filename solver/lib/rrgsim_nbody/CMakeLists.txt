@@ -8,6 +8,7 @@ find_package(CCCL REQUIRED COMPONENTS libcudacxx)
 add_library(${PROJECT_NAME} STATIC
     src/nbody.cu
     src/p2mesh.cu
+    src/wave.cu
 )
 
 target_include_directories(${PROJECT_NAME}

@@ -13,17 +13,6 @@ namespace rrgsim::nbody {
     using rrgsim::common::detail::ParticleCellInfo;
     using rrgsim::common::detail::CellInfo;
 
-    // __constant__ common::GridInfo grid_info_;
-
-__global__ void check_grid_info_(
-    double* item
-)
-{
-    int i = threadIdx.x + blockIdx.x * blockDim.x;
-    if (i > 1) return;
-    item[0] = (double)common::grid_info_.dx;
-}
-
 // ====================================================
 // ЯДРО 2: ИНИЦИАЛИЗАЦИЯ ВСПОМОГАТЕЛЬНЫХ МАССИВОВ
 // ====================================================
@@ -149,6 +138,21 @@ __global__ void computeCellMassesUnsorted(
 
     int i_cell = particles_cell_info[i_particle].cell_id;
 	atomicAdd(&cellMasses[i_cell], particle_mass[i_particle]);
+}
+
+// ====================================================
+__global__ void computeCellPhiUnsorted(
+    const double* particle_phi,   	   // [N] упорядоченные частицы
+    const ParticleCellInfo* particles_cell_info,// [N] инфо: x=ячейка, y=индекс в ячейке
+    const CellInfo* cellInfo,     		 // [TOTAL_CELLS]
+    double* cell_phi,                // [TOTAL_CELLS] результат
+    const int numParticles)
+{
+    int i_particle = threadIdx.x + blockIdx.x * blockDim.x;
+    if (i_particle >= numParticles) return;
+
+    int i_cell = particles_cell_info[i_particle].cell_id;
+	atomicAdd(&cell_phi[i_cell], particle_phi[i_particle] / cellInfo[i_cell].count);
 }
 
 } // namespace rrgsim::nbody

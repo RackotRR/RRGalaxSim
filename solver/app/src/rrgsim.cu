@@ -15,6 +15,7 @@
 #include "rrgsim_conservation.h"
 #include "nbody.h"
 #include "p2mesh.h"
+#include "wave.h"
 
 void integrate_nbody(
     rrgsim::common::ParticlesData particles_data,
@@ -79,7 +80,8 @@ void integrate_nbody(
 
 void check_grid(
     rrgsim::common::ParticlesData particles_data,
-    rrgsim::common::GridInfo grid_info
+    rrgsim::common::GridInfo grid_info,
+    rrgsim::common::WaveParams wave_params
 )
 {
     auto particles_context_ = rrgsim::common::initialize_particles_context_(particles_data);
@@ -91,7 +93,34 @@ void check_grid(
         grid_context_
     );
 
+    rrgsim::wave::solve_wave_equation(
+        grid_context_,
+        wave_params
+    );
+
+    auto print_grav_projection = [&](
+        std::vector<double> grav
+    )
+    {
+        auto& handler = rrgsim::io::IOHandler::instance();
+        size_t NX = grid_context_->info.nx;
+
+        for (size_t xi = 0; xi < NX; ++xi) {
+            rrgsim::io::TagValue x{
+                "x",
+                grid_context_->info.domain_min + grid_context_->info.dx * xi
+            };
+            rrgsim::io::TagValue g{
+                "grav",
+                grav[AT(xi, 50, 50)]
+            };
+            handler.append_table("grav_x_50_50", { x, g });
+        }
+
+    };
+
     grid_context->fill_device_data(grid_context_);
+    print_grav_projection(grid_context->grav);
 
 
     double mass_grid = std::accumulate(
@@ -134,14 +163,15 @@ int main(int argc, const char** argv) {
         }
 
         try {
-            // check_grid(
-            //     std::move(expected_particles_data).value(),
-            //     std::move(parsed.mb_grid_info).value()
-            // );
-            ::integrate_nbody(
+            check_grid(
                 std::move(expected_particles_data).value(),
-                std::move(parsed.sim_params)
+                std::move(parsed.mb_grid_info).value(),
+                parsed.mb_wave_params.value()
             );
+            // ::integrate_nbody(
+            //     std::move(expected_particles_data).value(),
+            //     std::move(parsed.sim_params),
+            // );
         }
         catch (const std::exception& ex) {
             spdlog::error("Exception: {}", ex.what());

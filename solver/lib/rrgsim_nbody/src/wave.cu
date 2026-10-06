@@ -13,20 +13,20 @@ namespace rrgsim::wave {
 
 
 __global__ void wave_diss_iteration(
-    double* phi_new,
-    const double* phi,
-    const double* phi_old,
-    const double* mass
+    real* phi_new,
+    const real* phi,
+    const real* phi_old,
+    const real* mass
 )
 {
 	const int NX =              grid_info_.nx;
-	const double DX =           grid_info_.dx;
-	const double SIM_L =        grid_info_.sim_l;
-	const double BC_L =         grid_info_.bc_l;
-	const double C =            wave_params_.wave_speed;
-	const double DT =           wave_params_.dt;
-	const double DISS_BASE =    wave_params_.diss_base;
-	const double DISS_EXTRA =   wave_params_.diss_extra;
+	const real DX =           grid_info_.dx;
+	const real SIM_L =        grid_info_.sim_l;
+	const real BC_L =         grid_info_.bc_l;
+	const real C =            wave_params_.wave_speed;
+	const real DT =           wave_params_.dt;
+	const real DISS_BASE =    wave_params_.diss_base;
+	const real DISS_EXTRA =   wave_params_.diss_extra;
 
     int ix = threadIdx.x + blockIdx.x * blockDim.x;
     int iy = threadIdx.y + blockIdx.y * blockDim.y;
@@ -39,41 +39,41 @@ __global__ void wave_diss_iteration(
     if (!is_valid_idx) return;
 
 
-    double x = ix * DX;
-    double y = iy * DX;
-    double z = iz * DX;
+    real x = ix * DX;
+    real y = iy * DX;
+    real z = iz * DX;
 
-	double rho = mass[AT(ix, iy, iz)] / (DX * DX * DX);
-	const double G = 1.;
-	double f = 4 * PI * G * rho;
+	real rho = mass[AT(ix, iy, iz)] / (DX * DX * DX);
+	const real G = 1.;
+	real f = 4 * PI * G * rho;
 
-    double diss = DISS_BASE;
+    real diss = DISS_BASE;
 #define _DISS_FUNC(x) (DISS_EXTRA * (x) * (x))
 
     if (x > -(SIM_L - BC_L)) {
-        const double x_right = SIM_L - BC_L;
+        const real x_right = SIM_L - BC_L;
         diss += _DISS_FUNC(fabs(x - x_right));
     }
     else if (x < -(SIM_L - BC_L)) {
-        const double x_left = -(SIM_L - BC_L);
+        const real x_left = -(SIM_L - BC_L);
         diss += _DISS_FUNC(fabs(x - x_left));
     }
 
     if (y > (SIM_L - BC_L)) {
-        const double y_top = SIM_L - BC_L;
+        const real y_top = SIM_L - BC_L;
         diss += _DISS_FUNC(fabs(y - y_top));
     }
     else if (y < -(SIM_L - BC_L)) {
-        const double y_bottom = -(SIM_L - BC_L);
+        const real y_bottom = -(SIM_L - BC_L);
         diss += _DISS_FUNC(fabs(y - y_bottom));
     }
 
     if (z > (SIM_L - BC_L)) {
-        const double z_far = SIM_L - BC_L;
+        const real z_far = SIM_L - BC_L;
         diss += _DISS_FUNC(fabs(z - z_far));
     }
     else if (z < -(SIM_L - BC_L)) {
-        const double z_near = -(SIM_L - BC_L);
+        const real z_near = -(SIM_L - BC_L);
         diss += _DISS_FUNC(fabs(z - z_near));
     }
 

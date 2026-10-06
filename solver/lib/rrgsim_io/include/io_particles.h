@@ -5,25 +5,26 @@
 #include <rrgsim_tl.h>
 #include <cuda_runtime.h>
 #include <co_particles.h>
+#include <co_types.h>
 
 namespace rrgsim::io {
 
     namespace fs = std::filesystem;
     using rrgsim::common::ParticlesData;
 
-    constexpr double NAN_VALUE = std::numeric_limits<double>::quiet_NaN();
+    constexpr real NAN_VALUE = std::numeric_limits<real>::quiet_NaN();
 
     struct IniGalaxyComponentData {
-        double mass = NAN_VALUE;
-        double soft = NAN_VALUE;
+        real mass = NAN_VALUE;
+        real soft = NAN_VALUE;
         fs::path ini_file;
     };
 
     struct IniGalaxyData {
-        double mass_star = NAN_VALUE;
-        double mass_dark = NAN_VALUE;
-        double soft_star = NAN_VALUE;
-        double soft_dark = NAN_VALUE;
+        real mass_star = NAN_VALUE;
+        real mass_dark = NAN_VALUE;
+        real soft_star = NAN_VALUE;
+        real soft_dark = NAN_VALUE;
         tl::optional<fs::path> mb_ini_file_star;
         tl::optional<fs::path> mb_ini_file_dark;
     };

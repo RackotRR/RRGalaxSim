@@ -12,21 +12,21 @@ namespace rrgsim::nbody {
 
 /// @brief Расчёт ускорения с учётом того, что количество частиц кратно размеру блока
 __global__ void acceleration_kernel_blocked_(
-	double3* acc,
-	const double3* pos,
-	const double* mass,
-	const double* soft2
+	real3* acc,
+	const real3* pos,
+	const real* mass,
+	const real* soft2
 )
 {
-	__shared__ double3 pos_other[BLOCK_SIZE];
-	__shared__ double mass_other[BLOCK_SIZE];
-	__shared__ double soft2_other[BLOCK_SIZE];
+	__shared__ real3 pos_other[BLOCK_SIZE];
+	__shared__ real mass_other[BLOCK_SIZE];
+	__shared__ real soft2_other[BLOCK_SIZE];
 
-	double3 f_sum = make_double3(0.0, 0.0, 0.0);
+	real3 f_sum = make_real3(0.0, 0.0, 0.0);
 
 	const int i_curr_global = threadIdx.x + blockIdx.x * blockDim.x;
-	const double3 p_curr = pos[i_curr_global];
-	const double soft2_curr = soft2[i_curr_global];
+	const real3 p_curr = pos[i_curr_global];
+	const real soft2_curr = soft2[i_curr_global];
 
 	for (int block = 0; block < gridDim.x; block++) {
 		const int i_other_global = threadIdx.x + block * blockDim.x;
@@ -37,16 +37,16 @@ __global__ void acceleration_kernel_blocked_(
 		__syncthreads();
 
 		for (int i_other_local = 0; i_other_local < blockDim.x; ++i_other_local) {
-			const double3 dp = make_double3(
+			const real3 dp = make_real3(
 				pos_other[i_other_local].x - p_curr.x,
 				pos_other[i_other_local].y - p_curr.y,
 				pos_other[i_other_local].z - p_curr.z
 			);
-			const double denominator = 1. / sqrt(
+			const real denominator = 1. / sqrt(
 				dot(dp, dp) +
 				0.5 * (soft2_curr + soft2_other[i_other_local])
 			);
-			const double k = mass_other[i_other_local] * cube(denominator);
+			const real k = mass_other[i_other_local] * cube(denominator);
 			f_sum.x += dp.x * k;
 			f_sum.y += dp.y * k;
 			f_sum.z += dp.z * k;
@@ -60,21 +60,21 @@ __global__ void acceleration_kernel_blocked_(
 }
 
 __global__ void grav_kernel_blocked_(
-	double* grav,
-	const double3* pos,
-	const double* mass,
-	const double* soft2
+	real* grav,
+	const real3* pos,
+	const real* mass,
+	const real* soft2
 )
 {
-	__shared__ double3 pos_other[BLOCK_SIZE];
-	__shared__ double mass_other[BLOCK_SIZE];
-	__shared__ double soft2_other[BLOCK_SIZE];
+	__shared__ real3 pos_other[BLOCK_SIZE];
+	__shared__ real mass_other[BLOCK_SIZE];
+	__shared__ real soft2_other[BLOCK_SIZE];
 
-	double grav_sum = 0.;
+	real grav_sum = 0.;
 
 	const int i_curr_global = threadIdx.x + blockIdx.x * blockDim.x;
-	const double3 p_curr = pos[i_curr_global];
-	const double soft2_curr = soft2[i_curr_global];
+	const real3 p_curr = pos[i_curr_global];
+	const real soft2_curr = soft2[i_curr_global];
 
 	for (int block = 0; block < gridDim.x; block++) {
 		const int i_other_global = threadIdx.x + block * blockDim.x;
@@ -85,7 +85,7 @@ __global__ void grav_kernel_blocked_(
 		__syncthreads();
 
 		for (int i_other_local = 0; i_other_local < blockDim.x; ++i_other_local) {
-			const double3 dp = make_double3(
+			const real3 dp = make_real3(
 				pos_other[i_other_local].x - p_curr.x,
 				pos_other[i_other_local].y - p_curr.y,
 				pos_other[i_other_local].z - p_curr.z
@@ -101,7 +101,7 @@ __global__ void grav_kernel_blocked_(
 	}
 
 	// некоторые источники предлагают исключать самогравитацию:
-	// double grav_self = mass[i_curr_global] / sqrt(soft2_curr);
+	// real grav_self = mass[i_curr_global] / sqrt(soft2_curr);
 	// grav[i_curr_global] = grav_self - grav_sum;
 
 	// но в исходном коде этого нет, и для совпадения не использую:
@@ -115,11 +115,11 @@ __global__ void grav_kernel_blocked_(
 /// @param vel_predict Предположение по скорости (v_{i+1}^{*})
 /// @param dt Шаг по времени
 __global__ void predict_step_(
-	const double3* acc,
-	const double3* vel,
-	double3* pos,
-	double3* vel_predict,
-	double dt
+	const real3* acc,
+	const real3* vel,
+	real3* pos,
+	real3* vel_predict,
+	real dt
 )
 {
 	const int i = threadIdx.x + blockIdx.x * blockDim.x;
@@ -127,19 +127,19 @@ __global__ void predict_step_(
 		return;
 	}
 
-	const double3 v = vel[i];
-	const double3 r = pos[i];
-	const double3 a = acc[i];
+	const real3 v = vel[i];
+	const real3 r = pos[i];
+	const real3 a = acc[i];
 
 	// v_{i+1}^{*} = v_{i} + dt * a_{i}
-	vel_predict[i] = make_double3(
+	vel_predict[i] = make_real3(
 		v.x + dt * a.x,
 		v.y + dt * a.y,
 		v.z + dt * a.z
 	);
 
 	// p_{i+1} = p_{i} + dt * 0.5(v_{i} + v_{i+1}^{*})
-	pos[i] = make_double3(
+	pos[i] = make_real3(
 		r.x + dt * 0.5 * (v.x + vel_predict[i].x),
 		r.y + dt * 0.5 * (v.y + vel_predict[i].y),
 		r.z + dt * 0.5 * (v.z + vel_predict[i].z)
@@ -152,10 +152,10 @@ __global__ void predict_step_(
 /// @param vel_predict Предположение по скорости (v_{i+1}^{*})
 /// @param dt Шаг по времени
 __global__ void correct_step_(
-	const double3* acc_new,
-	double3* vel,
-	const double3* vel_predict,
-	double dt
+	const real3* acc_new,
+	real3* vel,
+	const real3* vel_predict,
+	real dt
 )
 {
 	const int i = threadIdx.x + blockIdx.x * blockDim.x;
@@ -163,12 +163,12 @@ __global__ void correct_step_(
 		return;
 	}
 
-	const double3 v = vel[i];
-	const double3 vv = vel_predict[i];
-	const double3 aa = acc_new[i];
+	const real3 v = vel[i];
+	const real3 vv = vel_predict[i];
+	const real3 aa = acc_new[i];
 
 	// v_{i+1} = 0.5 * (v_i + v_{i+1}^{*}) + 0.5 * dt * a_{i+1}
-	vel[i] = make_double3(
+	vel[i] = make_real3(
 		0.5 * (v.x + vv.x + dt * aa.x),
 		0.5 * (v.y + vv.y + dt * aa.y),
 		0.5 * (v.z + vv.z + dt * aa.z)

@@ -32,13 +32,14 @@ initialize_particles_context_(
 
     const size_t N = particles_data.info.ntotal;
 
-    context->acc_ = CuDarray<double3>(N);
-    context->vel_predicted_ = CuDarray<double3>(N);
-    context->grav_ = CuDarray<double>(N);
+    context->acc_ = CuDarray<real3>(N);
+    context->vel_predicted_ = CuDarray<real3>(N);
+    context->grav_ = CuDarray<real>(N);
 
     context->info = particles_data.info;
     RR::CUDA::CuCopyToSymbol(context->info, rrgsim::common::particles_info_, RR::CUDA::ToDevice);
 
+    spdlog::info("initialize_particles_context_: GPU memory occupied now - {} MB", CuDarray<real>::get_total_allocated_mb());
     return context;
 }
 
@@ -53,9 +54,9 @@ initialize_particles_context(
     particles_context->mass = std::move(particles_data.mass);
     particles_context->pos = std::move(particles_data.pos);
     particles_context->vel = std::move(particles_data.vel);
-    particles_context->grav = std::vector<double>(
+    particles_context->grav = std::vector<real>(
         particles_context->pos.size(),
-        std::numeric_limits<double>::quiet_NaN()
+        std::numeric_limits<real>::quiet_NaN()
     );
     return particles_context;
 }

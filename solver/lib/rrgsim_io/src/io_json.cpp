@@ -27,7 +27,7 @@ namespace rrgsim::common {
 
         grid_info.domain_l = grid_info.dx * grid_info.nx;
 
-        double bc_frac = j.at("bc_frac").get<double>();
+        real bc_frac = j.at("bc_frac").get<real>();
         grid_info.sim_l = (1. - bc_frac) * grid_info.domain_l;
         grid_info.bc_l = 0.5 * bc_frac * grid_info.domain_l;
 
@@ -122,9 +122,9 @@ namespace rrgsim::io {
             parsed.sim_params.use_wave_model = true;
 
             // выводим шаг по времени из условия CFL
-            double dx = parsed.mb_grid_info->dx;
-            double c = parsed.mb_wave_params->wave_speed;
-            constexpr double DIM = 3;
+            real dx = parsed.mb_grid_info->dx;
+            real c = parsed.mb_wave_params->wave_speed;
+            constexpr real DIM = 3;
             parsed.mb_wave_params->dt = 0.5 * dx / (c * std::sqrt(DIM));
         }
 

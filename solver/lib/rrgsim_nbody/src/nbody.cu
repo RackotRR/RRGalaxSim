@@ -84,19 +84,19 @@ ConservationInfo calc_conservation(
     const size_t N = vel.size();
 
     ConservationInfo info;
-    info.momentum = double3(0., 0., 0.);
-    info.angular = double3(0., 0., 0.);
+    info.momentum = real3(0., 0., 0.);
+    info.angular = real3(0., 0., 0.);
     info.Ek = 0;
     info.Ep = 0;
 
     for (size_t i = 0; i < N; ++i) {
-        const double x = pos[i].x;
-        const double y = pos[i].y;
-        const double z = pos[i].z;
-        const double m = mass[i];
-        const double vx = vel[i].x;
-        const double vy = vel[i].y;
-        const double vz = vel[i].z;
+        const real x = pos[i].x;
+        const real y = pos[i].y;
+        const real z = pos[i].z;
+        const real m = mass[i];
+        const real vx = vel[i].x;
+        const real vy = vel[i].y;
+        const real vz = vel[i].z;
 
         info.momentum.x += m * vx;
         info.momentum.y += m * vy;

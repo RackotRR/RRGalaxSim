@@ -11,13 +11,13 @@ namespace rrgsim::nbody {
     using common::SimParams;
 
     struct ConservationInfo {
-        double time = 0;
-        double Ek = 0;
-        double Ep = 0;
-        double3 momentum = make_double3(0., 0., 0.);
-        double3 angular = make_double3(0., 0., 0.);
+        real time = 0;
+        real Ek = 0;
+        real Ep = 0;
+        real3 momentum = make_real3(0., 0., 0.);
+        real3 angular = make_real3(0., 0., 0.);
 
-        double E() const {
+        real E() const {
             return Ek + Ep;
         }
     };

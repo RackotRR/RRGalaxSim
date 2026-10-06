@@ -8,6 +8,7 @@
 
 #include <co_device_structs.cuh>
 #include <co_particles.h>
+#include <co_types.h>
 
 namespace rrgsim::common {
     using RR::CUDA::CuDarray;
@@ -27,13 +28,13 @@ namespace rrgsim::common {
 
     // контекст расчёта на GPU
     struct GridContext_ {
-        double time = 0.; // current time
+        real time = 0.; // current time
 
-        CuDarray<double> mass_; // cell masses (GPU)
-        CuDarray<double> grav_prev_; // cell gravitational potential (GPU)
-        CuDarray<double> grav_curr_; // cell gravitational potential (GPU)
-        CuDarray<double> grav_next_; // cell gravitational potential (GPU)
-        CuDarray<double3> acc_; // acceleration (GPU)
+        CuDarray<real> mass_; // cell masses (GPU)
+        CuDarray<real> grav_prev_; // cell gravitational potential (GPU)
+        CuDarray<real> grav_curr_; // cell gravitational potential (GPU)
+        CuDarray<real> grav_next_; // cell gravitational potential (GPU)
+        CuDarray<real3> acc_; // acceleration (GPU)
 
         CuDarray<detail::ParticleCellInfo> particles_cell_info_;
         CuDarray<detail::CellInfo> cell_info_;
@@ -46,9 +47,9 @@ namespace rrgsim::common {
 
     // контекст для пост-процессинга на CPU (данные, которые копируются с шагом dt_save)
     struct GridContext {
-        double time = 0.;
-        std::vector<double> mass;
-        std::vector<double> grav;
+        real time = 0.;
+        std::vector<real> mass;
+        std::vector<real> grav;
 
         void fill_device_data(
             const sGridContext_ context_

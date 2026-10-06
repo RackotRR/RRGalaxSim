@@ -1,9 +1,10 @@
 #pragma once
 #include <limits>
+#include <co_types.h>
 
 namespace rrgsim::common {
 
-constexpr double NAN_VALUE = std::numeric_limits<double>::quiet_NaN();
+constexpr real NAN_VALUE = std::numeric_limits<real>::quiet_NaN();
 
 #define PI 3.14159265358979
 constexpr int BLOCK_SIZE = 256;
@@ -18,33 +19,33 @@ struct GridInfo {
     int nx;
 
     /// @brief Шаг по координате
-    double dx;
+    real dx;
 
     /// @brief Область моделирования в одном измерении
-    double domain_l;
-    double domain_min; // -domain_l * 0.5 <-- заполняется солвером при чтении
-    double domain_max; // +domain_l * 0.5 <-- заполняется солвером при чтении
+    real domain_l;
+    real domain_min; // -domain_l * 0.5 <-- заполняется солвером при чтении
+    real domain_max; // +domain_l * 0.5 <-- заполняется солвером при чтении
 
     /// @brief Область граничных условий: domain_l = bc_l + sim_l + bc_l
-    double bc_l;
+    real bc_l;
 
     /// @brief Основная область моделирования
-    double sim_l;
+    real sim_l;
 };
 
 /// @brief Параметры волновой модели
 struct WaveParams {
-    double diss_base;
+    real diss_base;
 
-    double diss_extra;
+    real diss_extra;
 
-    double wave_speed;
+    real wave_speed;
 
     int setup_iterations;
 
     /// @brief Шаг по времени для интегрирования
     /// @note Выводится солвером из условия CFL
-    double dt;
+    real dt;
 };
 
 /// @brief Заполняется при инициализации контекста частиц

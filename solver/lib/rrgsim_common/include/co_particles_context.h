@@ -8,21 +8,22 @@
 
 #include <co_device_structs.cuh>
 #include <co_particles.h>
+#include <co_types.h>
 
 namespace rrgsim::common {
     using RR::CUDA::CuDarray;
 
     // контекст расчёта на GPU
     struct ParticlesContext_ {
-        double time = 0.; // current time
+        real time = 0.; // current time
 
-        CuDarray<double3> pos_; // particles position (GPU)
-        CuDarray<double3> vel_; // particles velocity (GPU)
-        CuDarray<double3> vel_predicted_; // particles velocity predicted (GPU)
-        CuDarray<double3> acc_; // particles acceleration (GPU)
-        CuDarray<double> mass_; // particles masses (GPU)
-        CuDarray<double> soft2_; // particles softening squared (GPU)
-        CuDarray<double> grav_; // particles gravitational potential (GPU)
+        CuDarray<real3> pos_; // particles position (GPU)
+        CuDarray<real3> vel_; // particles velocity (GPU)
+        CuDarray<real3> vel_predicted_; // particles velocity predicted (GPU)
+        CuDarray<real3> acc_; // particles acceleration (GPU)
+        CuDarray<real> mass_; // particles masses (GPU)
+        CuDarray<real> soft2_; // particles softening squared (GPU)
+        CuDarray<real> grav_; // particles gravitational potential (GPU)
 
         ParticlesInfo info;
     };
@@ -30,11 +31,11 @@ namespace rrgsim::common {
 
     // контекст для пост-процессинга на CPU (данные, которые копируются с шагом dt_save)
     struct ParticlesContext {
-        double time = 0.;
-        std::vector<double3> pos;
-        std::vector<double3> vel;
-        std::vector<double> mass;
-        std::vector<double> grav;
+        real time = 0.;
+        std::vector<real3> pos;
+        std::vector<real3> vel;
+        std::vector<real> mass;
+        std::vector<real> grav;
 
         void fill_device_data(
             const sParticlesContext_& context_

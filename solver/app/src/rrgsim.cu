@@ -35,8 +35,8 @@ void integrate_nbody(
     const auto base_conservation_info = rrgsim::nbody::calc_conservation(particles_context);
     rrgsim::conservation::print_conservation(base_conservation_info);
 
-    double time = 0.;
-    double next_save = time + sim_params.dt_save;
+    real time = 0.;
+    real next_save = time + sim_params.dt_save;
     while (time < sim_params.time_max) {
         rrgsim::nbody::predict_step(
             particles_context_,
@@ -87,6 +87,7 @@ void check_grid(
     auto particles_context_ = rrgsim::common::initialize_particles_context_(particles_data);
     auto grid_context_ = rrgsim::common::initialize_grid_context_(grid_info);
     auto grid_context = rrgsim::common::initialize_grid_context(grid_info);
+    rrgsim::conservation::check_bounds(particles_data.pos, grid_info);
 
     rrgsim::nbody::convert_particles_to_grid(
         particles_context_,
@@ -99,7 +100,7 @@ void check_grid(
     );
 
     auto print_grav_projection = [&](
-        std::vector<double> grav
+        std::vector<real> grav
     )
     {
         auto& handler = rrgsim::io::IOHandler::instance();
@@ -178,5 +179,6 @@ int main(int argc, const char** argv) {
         }
     }
 
+    spdlog::default_logger()->flush();
     return 0;
 }

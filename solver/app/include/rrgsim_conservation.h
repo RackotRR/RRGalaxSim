@@ -13,4 +13,9 @@ void print_conservation(
     const rrgsim::nbody::ConservationInfo& info
 );
 
+void check_bounds(
+    const std::vector<real3>& particles_pos,
+    const rrgsim::common::GridInfo& grid_info
+);
+
 } // namespace rrgsim::conservation

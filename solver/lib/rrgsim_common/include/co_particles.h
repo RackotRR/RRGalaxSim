@@ -2,14 +2,15 @@
 #include "cuda_runtime.h"
 #include <vector>
 #include "co_device_structs.cuh"
+#include "co_types.h"
 
 namespace rrgsim::common {
 
     struct ParticlesData {
-        std::vector<double3> pos;
-        std::vector<double3> vel;
-        std::vector<double> mass;
-        std::vector<double> soft2;
+        std::vector<real3> pos;
+        std::vector<real3> vel;
+        std::vector<real> mass;
+        std::vector<real> soft2;
 
         ParticlesInfo info;
     };

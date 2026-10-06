@@ -1,6 +1,7 @@
 #pragma once
 #include <filesystem>
 #include <unordered_set>
+#include <co_types.h>
 
 namespace rrgsim::io {
 
@@ -18,6 +19,7 @@ namespace rrgsim::io {
 
         static void setup(std::filesystem::path work_dir);
 
+        // TODO: мне не нравится, что файл открывается каждый раз
         void append_table(
             std::string_view tag,
             std::initializer_list<TagValue> items

@@ -30,7 +30,7 @@ namespace rrgsim::io {
         }
 
         size_t ini_N = row[0].get<size_t>();
-        double ini_t = row[1].get<double>();
+        real ini_t = row[1].get<real>();
         spdlog::info("Header says: {} particles, time = {:.10f}", ini_N, ini_t);
 
         size_t prev_N = particles_data.pos.size();
@@ -43,8 +43,8 @@ namespace rrgsim::io {
         spdlog::debug("New data size: {}", ini_N);
         spdlog::debug("New array sizes: {}", N);
 
-        const double particle_mass = component_data.mass / N;
-        const double particle_soft2 = component_data.soft * component_data.soft;
+        const real particle_mass = component_data.mass / N;
+        const real particle_soft2 = component_data.soft * component_data.soft;
 
         auto& pos = particles_data.pos;
         auto& vel = particles_data.vel;
@@ -53,18 +53,18 @@ namespace rrgsim::io {
 
         while (reader.read_row(row)) {
             pos.push_back(
-                make_double3(
-                    row[0].get<double>(),
-                    row[1].get<double>(),
-                    row[2].get<double>()
+                make_real3(
+                    row[0].get<real>(),
+                    row[1].get<real>(),
+                    row[2].get<real>()
                 )
             );
 
             vel.push_back(
-                make_double3(
-                    row[3].get<double>(),
-                    row[4].get<double>(),
-                    row[5].get<double>()
+                make_real3(
+                    row[3].get<real>(),
+                    row[4].get<real>(),
+                    row[5].get<real>()
                 )
             );
 

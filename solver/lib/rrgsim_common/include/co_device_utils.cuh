@@ -1,15 +1,16 @@
 #pragma once
 #include <cuda_runtime.h>
+#include <co_types.h>
 
 namespace rrgsim::common {
 
 template<typename T>
 __host__ __device__
-double dot(const T& vec1, const T& vec2);
+real dot(const T& vec1, const T& vec2);
 
 template<>
 inline __host__ __device__
-double dot(const double2& vec1, const double2& vec2) {
+real dot(const real2& vec1, const real2& vec2) {
 	return
 		vec1.x * vec2.x +
 		vec1.y * vec2.y;
@@ -17,7 +18,7 @@ double dot(const double2& vec1, const double2& vec2) {
 
 template<>
 inline __host__ __device__
-double dot(const double3& vec1, const double3& vec2) {
+real dot(const real3& vec1, const real3& vec2) {
 	return
 		vec1.x * vec2.x +
 		vec1.y * vec2.y +
@@ -26,13 +27,13 @@ double dot(const double3& vec1, const double3& vec2) {
 
 template<typename T>
 __host__ __device__
-double norm(const T& vec) {
+real norm(const T& vec) {
 	return sqrt(dot(vec, vec));
 }
 
 inline __host__ __device__
-double distance(const double3& v1, const double3& v2) {
-	double3 r = make_double3(
+real distance(const real3& v1, const real3& v2) {
+	real3 r = make_real3(
 		v2.x - v1.x,
 		v2.y - v1.y,
 		v2.z - v1.z
@@ -48,12 +49,12 @@ __host__ __device__ T clamp(T val, T min_val, T max_val) {
 }
 
 inline __host__ __device__
-double sqr(double x) {
+real sqr(real x) {
 	return x * x;
 }
 
 inline __host__ __device__
-double cube(double x) {
+real cube(real x) {
 	return x * x * x;
 }
 

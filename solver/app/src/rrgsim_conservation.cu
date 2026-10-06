@@ -205,4 +205,58 @@ void print_conservation(
     save_energy_data_conservation(info0, info);
 }
 
+void check_bounds(
+    const std::vector<real3>& particles_pos,
+    const rrgsim::common::GridInfo& grid_info
+)
+{
+    spdlog::info("Check bounds");
+    if (particles_pos.empty()) {
+        spdlog::debug("\t No particles_pos passed");
+        return;
+    }
+
+    real max_x = particles_pos.front().x;
+    real max_y = particles_pos.front().y;
+    real max_z = particles_pos.front().z;
+    real min_x = max_x;
+    real min_y = max_y;
+    real min_z = max_z;
+    for (size_t i = 0; i < particles_pos.size(); ++i) {
+        const real3& p = particles_pos[i];
+        max_x = std::max(max_x, p.x);
+        max_y = std::max(max_y, p.y);
+        max_z = std::max(max_z, p.z);
+        min_x = std::min(min_x, p.x);
+        min_y = std::min(min_y, p.y);
+        min_z = std::min(min_z, p.z);
+    }
+
+    spdlog::info("\t X: [{} .. {}]", min_x, max_x);
+    spdlog::info("\t Y: [{} .. {}]", min_y, max_y);
+    spdlog::info("\t Z: [{} .. {}]", min_z, max_z);
+
+#define MIN_BOUNDS_VIOLATION_MESSAGE "{0} min bounds violation! Particle {0}: {1}; domain_min: {2}"
+#define MAX_BOUNDS_VIOLATION_MESSAGE "{0} max bounds violation! Particle {0}: {1}; domain_max: {2}"
+
+    if (min_x < grid_info.domain_min) {
+        spdlog::error(MIN_BOUNDS_VIOLATION_MESSAGE, "X", min_x, grid_info.domain_min);
+    }
+    if (min_y < grid_info.domain_min) {
+        spdlog::error(MIN_BOUNDS_VIOLATION_MESSAGE, "Y", min_y, grid_info.domain_min);
+    }
+    if (min_z < grid_info.domain_min) {
+        spdlog::error(MIN_BOUNDS_VIOLATION_MESSAGE, "Z", min_z, grid_info.domain_min);
+    }
+    if (max_x > grid_info.domain_max) {
+        spdlog::error(MAX_BOUNDS_VIOLATION_MESSAGE, "X", max_x, grid_info.domain_max);
+    }
+    if (max_y > grid_info.domain_max) {
+        spdlog::error(MAX_BOUNDS_VIOLATION_MESSAGE, "Y", max_y, grid_info.domain_max);
+    }
+    if (max_z > grid_info.domain_max) {
+        spdlog::error(MAX_BOUNDS_VIOLATION_MESSAGE, "Z", max_z, grid_info.domain_max);
+    }
+}
+
 } // namespace rrgsim::conservation

@@ -1,7 +1,7 @@
 #pragma once
 #include <co_sim_params.h>
 #include <co_device_structs.cuh>
-#include <co_particles_context.h>
+#include <co_particles_context.cuh>
 
 namespace rrgsim::nbody {
     using RR::CUDA::CuDarray;

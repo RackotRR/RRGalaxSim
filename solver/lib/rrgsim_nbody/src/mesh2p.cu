@@ -4,6 +4,8 @@
 
 #include "mesh2p.h"
 
+#include <spdlog/spdlog.h>
+
 namespace rrgsim::mesh2p {
 
 using rrgsim::common::detail::ParticleCellInfo;
@@ -41,7 +43,10 @@ project_grid_onto_particles(
     sParticlesContext_ particles_context_
 )
 {
-    auto over = rrgsim::common::OverInfo(0, particles_context_->info.ntotal);
+    spdlog::info("project_grid_onto_particles");
+    RR::CUDA::CuDeviceSync();
+
+    auto over = rrgsim::common::OverInfo::calc(0, particles_context_->info.ntotal);
 
     RR::CUDA::CuCall(projectCellPhiOnParticles, over.particles, over.blocks) (
         grid_context_->grav_curr_,

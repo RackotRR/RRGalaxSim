@@ -8,13 +8,15 @@
 
 #include "p2mesh.h"
 
-namespace rrgsim::nbody {
+namespace rrgsim::p2mesh {
 
 using rrgsim::common::grid_info_;
 using rrgsim::common::BLOCK_SIZE;
 using rrgsim::common::detail::ParticleCellInfo;
 using rrgsim::common::detail::CellInfo;
 using rrgsim::common::OverInfo;
+using rrgsim::common::SimParams;
+using RR::CUDA::CuDarray;
 
 
 // ====================================================
@@ -164,6 +166,7 @@ void convert_particles_to_grid(
     sGridContext_ grid_
 )
 {
+    spdlog::info("convert_particles_to_grid");
 	RR::CUDA::CuDeviceSync();
 
     auto over = OverInfo::calc(grid_->info.nx, particles_->info.ntotal);
@@ -214,4 +217,4 @@ void convert_particles_to_grid(
 	);
 }
 
-} // namespace rrgsim::nbody
+} // namespace rrgsim::p2mesh

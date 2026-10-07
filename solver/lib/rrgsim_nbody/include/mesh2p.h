@@ -1,5 +1,5 @@
 #pragma once
-#include <co_particles_context.h>
+#include <co_particles_context.cuh>
 #include <co_grid_context.h>
 
 namespace rrgsim::mesh2p {

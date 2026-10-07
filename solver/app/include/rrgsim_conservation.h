@@ -1,5 +1,5 @@
 #pragma once
-#include <nbody.h>
+#include <nbody.cuh>
 #include <filesystem>
 
 namespace rrgsim::conservation {

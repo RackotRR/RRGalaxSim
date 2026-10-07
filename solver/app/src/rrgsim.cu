@@ -1,6 +1,6 @@
 #include <co_sim_params.h>
 #include <co_particles.h>
-#include <co_particles_context.h>
+#include <co_particles_context.cuh>
 #include <co_grid_context.h>
 #include <co_device_utils.cuh>
 
@@ -13,67 +13,12 @@
 
 #include "rrgsim_log.h"
 #include "rrgsim_conservation.h"
-#include "nbody.h"
+#include "nbody.cuh"
 #include "p2mesh.h"
 #include "mesh2p.h"
 #include "wave.h"
 
-void integrate_nbody(
-    rrgsim::common::ParticlesData particles_data,
-    rrgsim::common::SimParams sim_params
-) {
-    auto particles_context_ = rrgsim::common::initialize_particles_context_(particles_data);
-    auto particles_context = initialize_particles_context(std::move(particles_data));
-    rrgsim::nbody::nbody_grav(
-        particles_context_
-    );
-    rrgsim::nbody::nbody_acceleration(
-        particles_context_
-    );
-    particles_context->grav = particles_context_->grav_.to_vector();
-    const auto base_conservation_info = rrgsim::nbody::calc_conservation(particles_context);
-    rrgsim::conservation::print_conservation(base_conservation_info);
-
-    real time = 0.;
-    real next_save = time + sim_params.dt_save;
-    while (time < sim_params.time_max) {
-        rrgsim::nbody::predict_step(
-            particles_context_,
-            sim_params
-        );
-
-        rrgsim::nbody::nbody_acceleration(
-            particles_context_
-        );
-
-        rrgsim::nbody::correct_step(
-            particles_context_,
-            sim_params
-        );
-
-        time += sim_params.dt_dynamics;
-        particles_context_->time = time;
-
-        if (time >= next_save) {
-            spdlog::info("Time to save: {}", time);
-
-            rrgsim::nbody::nbody_grav(
-                particles_context_
-            );
-
-            particles_context->fill_device_data(
-                particles_context_
-            );
-
-            rrgsim::conservation::print_conservation(
-                base_conservation_info,
-                rrgsim::nbody::calc_conservation(particles_context)
-            );
-
-            next_save += sim_params.dt_save;
-        }
-    }
-}
+#include "rrgsim_nbody.h"
 
 void print_grav_projection(
     rrgsim::common::sGridContext grid_context
@@ -128,7 +73,7 @@ void check_grid(
     auto grid_context = rrgsim::common::initialize_grid_context(grid_info);
     rrgsim::conservation::check_bounds(particles_data.pos, grid_info);
 
-    rrgsim::nbody::convert_particles_to_grid(
+    rrgsim::p2mesh::convert_particles_to_grid(
         particles_context_,
         grid_context_
     );
@@ -145,10 +90,24 @@ void check_grid(
     auto grav_nbody = particles_context_->grav_.to_vector();
     auto mass_nbody = particles_data.mass;
 
+    // conservation
+    auto particles_context = rrgsim::common::initialize_particles_context(particles_data);
+    particles_context->fill_device_data(particles_context_);
+    auto conservation_nbody = rrgsim::nbody::calc_conservation(particles_context);
+    spdlog::info("Conservation N-Body");
+    rrgsim::conservation::print_conservation(conservation_nbody);
+
     auto grid_projected = rrgsim::mesh2p::project_grid_onto_particles(
         grid_context_,
         particles_context_
     );
+    particles_context->grav = grid_projected.grav;
+    auto conservation_grid_projected = rrgsim::nbody::calc_conservation(particles_context);
+    spdlog::info("Conservation Grid Projected");
+    rrgsim::conservation::print_conservation(conservation_grid_projected);
+    spdlog::info("Conservation Grid Projected VS NBody");
+    rrgsim::conservation::print_conservation(conservation_nbody, conservation_grid_projected);
+
 
     print_grid_nbody_projection("mass_nbody_grid", mass_nbody, grid_projected.mass, particles_data.pos);
     print_grid_nbody_projection("grav_nbody_grid", grav_nbody, grid_projected.grav, particles_data.pos);

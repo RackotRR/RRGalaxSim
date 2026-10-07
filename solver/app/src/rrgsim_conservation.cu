@@ -98,18 +98,18 @@ void print_conservation(
 )
 {
     spdlog::info("-- momentum:");
-    spdlog::info("\t x {}", info.momentum.x);
-    spdlog::info("\t y {}", info.momentum.y);
-    spdlog::info("\t z {}", info.momentum.z);
+    spdlog::info("\t x {:.15f}", info.momentum.x);
+    spdlog::info("\t y {:.15f}", info.momentum.y);
+    spdlog::info("\t z {:.15f}", info.momentum.z);
 
     spdlog::info("-- angular momentum:");
-    spdlog::info("\t x {}", info.angular.x);
-    spdlog::info("\t y {}", info.angular.y);
-    spdlog::info("\t z {}", info.angular.z);
+    spdlog::info("\t x {:.15f}", info.angular.x);
+    spdlog::info("\t y {:.15f}", info.angular.y);
+    spdlog::info("\t z {:.15f}", info.angular.z);
 
-    spdlog::info("-- energy: {}", info.E());
-    spdlog::info("\t keenetic {}", info.Ek);
-    spdlog::info("\t potential {}", info.Ep);
+    spdlog::info("-- energy: {:.15f}", info.E());
+    spdlog::info("\t keenetic {:.15f}", info.Ek);
+    spdlog::info("\t potential {:.15f}", info.Ep);
 }
 void print_conservation(
     const rrgsim::nbody::ConservationInfo& info0,

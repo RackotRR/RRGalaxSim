@@ -1,5 +1,5 @@
 #include "nbody_kernel.cuh"
-#include "nbody.h"
+#include "nbody.cuh"
 #include <spdlog/spdlog.h>
 
 namespace rrgsim::nbody {

@@ -58,7 +58,8 @@ extern __constant__ GridInfo grid_info_;
 /// @brief Заполняется при чтении параметров
 extern __constant__ WaveParams wave_params_;
 
-struct OverInfo {
+class OverInfo {
+public:
     int num_cells = 0;
     int num_particles = 0;
     int num_cell_blocks = 0;
@@ -82,6 +83,8 @@ struct OverInfo {
         over.blocks = BLOCK_SIZE;
         return over;
     }
+private:
+    OverInfo() = default;
 };
 
 } // namespace rrgsim::common

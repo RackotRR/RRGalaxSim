@@ -1,4 +1,4 @@
-#include "co_particles_context.h"
+#include "co_particles_context.cuh"
 
 #include <spdlog/spdlog.h>
 

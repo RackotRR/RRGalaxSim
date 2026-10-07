@@ -119,6 +119,7 @@ void solve_wave_equation(
 )
 {
     spdlog::info("solve_wave_equation");
+    RR::CUDA::CuDeviceSync();
 
 	for (int iter = 0; iter < wave_params.setup_iterations; ++iter) {
 		if (iter && iter % 500 == 0) {

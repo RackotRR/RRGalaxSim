@@ -15,6 +15,7 @@
 #include "rrgsim_conservation.h"
 #include "nbody.h"
 #include "p2mesh.h"
+#include "mesh2p.h"
 #include "wave.h"
 
 void integrate_nbody(
@@ -24,12 +25,10 @@ void integrate_nbody(
     auto particles_context_ = rrgsim::common::initialize_particles_context_(particles_data);
     auto particles_context = initialize_particles_context(std::move(particles_data));
     rrgsim::nbody::nbody_grav(
-        particles_context_,
-        sim_params
+        particles_context_
     );
     rrgsim::nbody::nbody_acceleration(
-        particles_context_,
-        sim_params
+        particles_context_
     );
     particles_context->grav = particles_context_->grav_.to_vector();
     const auto base_conservation_info = rrgsim::nbody::calc_conservation(particles_context);
@@ -44,8 +43,7 @@ void integrate_nbody(
         );
 
         rrgsim::nbody::nbody_acceleration(
-            particles_context_,
-            sim_params
+            particles_context_
         );
 
         rrgsim::nbody::correct_step(
@@ -60,8 +58,7 @@ void integrate_nbody(
             spdlog::info("Time to save: {}", time);
 
             rrgsim::nbody::nbody_grav(
-                particles_context_,
-                sim_params
+                particles_context_
             );
 
             particles_context->fill_device_data(
@@ -77,6 +74,48 @@ void integrate_nbody(
         }
     }
 }
+
+void print_grav_projection(
+    rrgsim::common::sGridContext grid_context
+)
+{
+    auto& handler = rrgsim::io::IOHandler::instance();
+    size_t NX = grid_context->info.nx;
+
+    for (size_t xi = 0; xi < NX; ++xi) {
+        rrgsim::io::TagValue x{
+            "x",
+            grid_context->info.domain_min + grid_context->info.dx * xi
+        };
+        rrgsim::io::TagValue g{
+            "grav",
+            grid_context->grav[AT(xi, 50, 50)]
+        };
+        handler.append_table("grav_x_50_50", { x, g });
+    }
+
+}
+
+void print_grid_nbody_projection(
+    std::string filename,
+    const std::vector<real>& nbody,
+    const std::vector<real>& grid,
+    const std::vector<real3>& pos
+)
+{
+    auto& handler = rrgsim::io::IOHandler::instance();
+
+    for (size_t i = 0; i < nbody.size(); ++i) {
+        rrgsim::io::TagValue ii{ "i", (real)i };
+        rrgsim::io::TagValue g_nbody{ "nbody", nbody[i] };
+        rrgsim::io::TagValue g_grid{ "grid", grid[i] };
+        rrgsim::io::TagValue x{ "x", pos[i].x };
+        rrgsim::io::TagValue y{ "y", pos[i].y };
+        rrgsim::io::TagValue z{ "z", pos[i].z };
+
+        handler.append_table(filename, { ii, g_nbody, g_grid, x, y, z });
+    }
+};
 
 void check_grid(
     rrgsim::common::ParticlesData particles_data,
@@ -99,32 +138,22 @@ void check_grid(
         wave_params
     );
 
-    auto print_grav_projection = [&](
-        std::vector<real> grav
-    )
-    {
-        auto& handler = rrgsim::io::IOHandler::instance();
-        size_t NX = grid_context_->info.nx;
-
-        for (size_t xi = 0; xi < NX; ++xi) {
-            rrgsim::io::TagValue x{
-                "x",
-                grid_context_->info.domain_min + grid_context_->info.dx * xi
-            };
-            rrgsim::io::TagValue g{
-                "grav",
-                grav[AT(xi, 50, 50)]
-            };
-            handler.append_table("grav_x_50_50", { x, g });
-        }
-
-    };
-
     grid_context->fill_device_data(grid_context_);
-    print_grav_projection(grid_context->grav);
+    print_grav_projection(grid_context);
 
+    rrgsim::nbody::nbody_grav(particles_context_);
+    auto grav_nbody = particles_context_->grav_.to_vector();
+    auto mass_nbody = particles_data.mass;
 
-    double mass_grid = std::accumulate(
+    auto grid_projected = rrgsim::mesh2p::project_grid_onto_particles(
+        grid_context_,
+        particles_context_
+    );
+
+    print_grid_nbody_projection("mass_nbody_grid", mass_nbody, grid_projected.mass, particles_data.pos);
+    print_grid_nbody_projection("grav_nbody_grid", grav_nbody, grid_projected.grav, particles_data.pos);
+
+    real mass_grid = std::accumulate(
         grid_context->mass.begin(),
         grid_context->mass.end(),
         0.

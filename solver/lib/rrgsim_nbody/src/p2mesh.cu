@@ -1,8 +1,21 @@
+#include <cuda_runtime.h>
+
+#include <co_device_utils.cuh>
+#include <co_device_structs.cuh>
+#include <co_grid_context.h>
+
 #include <spdlog/spdlog.h>
-#include "nbody_p2mesh.cuh"
+
 #include "p2mesh.h"
 
 namespace rrgsim::nbody {
+
+using rrgsim::common::grid_info_;
+using rrgsim::common::BLOCK_SIZE;
+using rrgsim::common::detail::ParticleCellInfo;
+using rrgsim::common::detail::CellInfo;
+using rrgsim::common::OverInfo;
+
 
 // ====================================================
 // ЯДРО 2: ИНИЦИАЛИЗАЦИЯ ВСПОМОГАТЕЛЬНЫХ МАССИВОВ
@@ -153,25 +166,19 @@ void convert_particles_to_grid(
 {
 	RR::CUDA::CuDeviceSync();
 
-    const int num_cells = rrgsim::common::cube(grid_->info.nx);
-    const int num_particles = particles_->info.ntotal;
-    const int num_cell_blocks = (num_cells + BLOCK_SIZE - 1) / BLOCK_SIZE;
-    const int num_particle_blocks = (num_particles + BLOCK_SIZE - 1) / BLOCK_SIZE;
-    const int over_particles = num_particle_blocks;
-    const int over_cells = num_cell_blocks;
-    const int over_blocks = BLOCK_SIZE;
+    auto over = OverInfo::calc(grid_->info.nx, particles_->info.ntotal);
 
     if (nullptr == grid_->particles_cell_info_) {
-        grid_->particles_cell_info_ = CuDarray<ParticleCellInfo>(num_particles);
+        grid_->particles_cell_info_ = CuDarray<ParticleCellInfo>(over.num_particles);
     }
     if (nullptr == grid_->cell_info_) {
-        grid_->cell_info_ = CuDarray<CellInfo>(num_cells);
+        grid_->cell_info_ = CuDarray<CellInfo>(over.num_cells);
     }
     if (nullptr == grid_->cell_particles_count_) {
-        grid_->cell_particles_count_ = CuDarray<int>(num_cells);
+        grid_->cell_particles_count_ = CuDarray<int>(over.num_cells);
     }
     if (nullptr == grid_->particles_in_block_) {
-        grid_->particles_in_block_ = CuDarray<int>(num_cell_blocks);
+        grid_->particles_in_block_ = CuDarray<int>(over.num_cell_blocks);
     }
 
 	grid_->particles_cell_info_.set_zero();
@@ -182,28 +189,28 @@ void convert_particles_to_grid(
 
     spdlog::info("convert_particles_to_grid: GPU memory occupied now - {} MB", CuDarray<real>::get_total_allocated_mb());
 
-    RR::CUDA::CuCall(assignParticlesToCells, over_particles, over_blocks) (
+    RR::CUDA::CuCall(assignParticlesToCells, over.particles, over.blocks) (
         particles_->pos_,
         grid_->particles_cell_info_,
         grid_->cell_info_,
         grid_->cell_particles_count_,
-        num_particles
+        over.num_particles
     );
-    RR::CUDA::CuCall(computePrefixSums, over_cells, over_blocks) (
+    RR::CUDA::CuCall(computePrefixSums, over.cells, over.blocks) (
         grid_->cell_info_,
         grid_->particles_in_block_,
-        num_cells
+        over.num_cells
     );
-    RR::CUDA::CuCall(adjustGlobalPrefixSums, over_cells, over_blocks) (
+    RR::CUDA::CuCall(adjustGlobalPrefixSums, over.cells, over.blocks) (
         grid_->cell_info_,
         grid_->particles_in_block_,
-        num_cells
+        over.num_cells
     );
-	RR::CUDA::CuCall(computeCellMassesUnsorted, over_particles, over_blocks) (
+	RR::CUDA::CuCall(computeCellMassesUnsorted, over.particles, over.blocks) (
 		particles_->mass_,
 		grid_->particles_cell_info_,
 		grid_->mass_,
-		num_particles
+		over.num_particles
 	);
 }
 

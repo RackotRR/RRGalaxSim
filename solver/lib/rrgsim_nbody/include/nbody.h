@@ -23,31 +23,25 @@ namespace rrgsim::nbody {
     };
 
     ConservationInfo calc_conservation(
-        sParticlesContext host_context
+        sParticlesContext context
     );
 
     void predict_step(
-        sParticlesContext_ context,
+        sParticlesContext_ context_,
         const SimParams& sim_params
     );
 
     void nbody_acceleration(
-        sParticlesContext_ context,
-        const SimParams& sim_params
+        sParticlesContext_ context_
     );
 
     void nbody_grav(
-        sParticlesContext_ context,
-        const SimParams& sim_params
+        sParticlesContext_ context_
     );
 
     void correct_step(
-        sParticlesContext_ context,
+        sParticlesContext_ context_,
         const SimParams& sim_params
     );
-
-    inline int calc_blocks_count(int ntotal) {
-        return (ntotal + BLOCK_SIZE - 1) / BLOCK_SIZE;
-    }
 
 } // namespace rrgsim::nbody

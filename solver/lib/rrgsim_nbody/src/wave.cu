@@ -125,15 +125,11 @@ void solve_wave_equation(
             spdlog::info("wave_diss_iteration step: {}", iter);
 		}
 
-        const int num_cells = rrgsim::common::cube(grid_->info.nx);
-        const int num_cell_blocks = (num_cells + BLOCK_SIZE - 1) / BLOCK_SIZE;
-        const int over_cells = num_cell_blocks;
-        const int over_blocks = BLOCK_SIZE;
+        using rrgsim::common::BLOCK_SIZE_IN_3D;
+        using rrgsim::common::OverInfo;
 
-        int nx = grid_->info.nx;
-
-        unsigned threads_count = 8;
-        unsigned blocks_count = static_cast<unsigned>(nx + threads_count - 1) / threads_count;
+        unsigned threads_count = BLOCK_SIZE_IN_3D;
+        unsigned blocks_count = static_cast<unsigned>(OverInfo::split_into_blocks(grid_->info.nx, BLOCK_SIZE_IN_3D));
         dim3 threads_per_block{ threads_count, threads_count, threads_count };
         dim3 blocks_per_grid{ blocks_count, blocks_count, blocks_count };
 		RR::CUDA::CuCall(wave_diss_iteration, blocks_per_grid, threads_per_block) (

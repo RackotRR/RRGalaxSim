@@ -4,6 +4,8 @@
 
 namespace rrgsim::nbody {
 
+using rrgsim::common::OverInfo;
+
 void predict_step(
     sParticlesContext_ context_,
     const SimParams& sim_params
@@ -11,8 +13,8 @@ void predict_step(
 {
     spdlog::debug("NBody::predict_step (t={})", context_->time);
 
-    int blocks_count = calc_blocks_count(context_->info.ntotal);
-    RR::CUDA::CuCall(predict_step_, blocks_count, BLOCK_SIZE) (
+    auto over = OverInfo::calc(0, context_->info.ntotal);
+    RR::CUDA::CuCall(predict_step_, over.particles, over.blocks) (
         context_->acc_,
         context_->vel_,
         context_->pos_,
@@ -22,14 +24,13 @@ void predict_step(
 }
 
 void nbody_acceleration(
-    sParticlesContext_ context_,
-    const SimParams& sim_params
+    sParticlesContext_ context_
 )
 {
     spdlog::debug("NBody::acceleration (t={})", context_->time);
 
-    int blocks_count = calc_blocks_count(context_->info.ntotal);
-    RR::CUDA::CuCall(acceleration_kernel_blocked_, blocks_count, BLOCK_SIZE) (
+    auto over = OverInfo::calc(0, context_->info.ntotal);
+    RR::CUDA::CuCall(acceleration_kernel_blocked_, over.particles, over.blocks) (
         context_->acc_,
         context_->pos_,
         context_->mass_,
@@ -38,14 +39,13 @@ void nbody_acceleration(
 }
 
 void nbody_grav(
-    sParticlesContext_ context_,
-    const SimParams& sim_params
+    sParticlesContext_ context_
 )
 {
     spdlog::debug("NBody::grav (t={})", context_->time);
 
-    int blocks_count = calc_blocks_count(context_->info.ntotal);
-    RR::CUDA::CuCall(grav_kernel_blocked_, blocks_count, BLOCK_SIZE) (
+    auto over = OverInfo::calc(0, context_->info.ntotal);
+    RR::CUDA::CuCall(grav_kernel_blocked_, over.particles, over.blocks) (
         context_->grav_,
         context_->pos_,
         context_->mass_,
@@ -60,8 +60,8 @@ void correct_step(
 {
     spdlog::debug("NBody::correct_step (t={})", context_->time);
 
-    int blocks_count = calc_blocks_count(context_->info.ntotal);
-    RR::CUDA::CuCall(correct_step_, blocks_count, BLOCK_SIZE) (
+    auto over = OverInfo::calc(0, context_->info.ntotal);
+    RR::CUDA::CuCall(correct_step_, over.particles, over.blocks) (
         context_->acc_,
         context_->vel_,
         context_->vel_predicted_,

@@ -8,6 +8,7 @@ constexpr real NAN_VALUE = std::numeric_limits<real>::quiet_NaN();
 
 #define PI 3.14159265358979
 constexpr int BLOCK_SIZE = 256;
+constexpr int BLOCK_SIZE_IN_3D = 8;
 
 struct ParticlesInfo {
     int ntotal;
@@ -56,5 +57,31 @@ extern __constant__ GridInfo grid_info_;
 
 /// @brief Заполняется при чтении параметров
 extern __constant__ WaveParams wave_params_;
+
+struct OverInfo {
+    int num_cells = 0;
+    int num_particles = 0;
+    int num_cell_blocks = 0;
+    int num_particle_blocks = 0;
+    int /*over*/ particles = 0;
+    int /*over*/ cells = 0;
+    int /*over*/ blocks = 0;
+
+    static int split_into_blocks(int ntotal, int block_size) {
+        return (ntotal + block_size - 1) / block_size;
+    }
+
+    static OverInfo calc(int grid_nx, int particles_count) {
+        OverInfo over;
+        over.num_cells = grid_nx * grid_nx * grid_nx;
+        over.num_particles = particles_count;
+        over.num_cell_blocks = split_into_blocks(over.num_cells, BLOCK_SIZE);
+        over.num_particle_blocks = split_into_blocks(over.num_particles, BLOCK_SIZE);
+        over.particles = over.num_particle_blocks;
+        over.cells = over.num_cell_blocks;
+        over.blocks = BLOCK_SIZE;
+        return over;
+    }
+};
 
 } // namespace rrgsim::common

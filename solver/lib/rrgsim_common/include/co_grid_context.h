@@ -50,6 +50,7 @@ namespace rrgsim::common {
         real time = 0.;
         std::vector<real> mass;
         std::vector<real> grav;
+        GridInfo info;
 
         void fill_device_data(
             const sGridContext_ context_
@@ -67,5 +68,14 @@ namespace rrgsim::common {
     initialize_grid_context(
         GridInfo grid_info
     );
+
+    // данные проекции значений на сетке на частицы
+    struct GridProjectionOnParticles {
+        std::vector<real> mass;
+        std::vector<real> grav;
+
+        GridInfo grid_info;
+        ParticlesInfo particles_info;
+    };
 
 } // namespace rrgsim::common

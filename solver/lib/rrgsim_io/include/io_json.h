@@ -2,7 +2,7 @@
 #include "io_particles.h"
 
 #include "co_sim_params.h"
-#include "co_device_structs.cuh"
+#include "co_info_structs.h"
 
 #include <nlohmann/json.hpp>
 #include <rrgsim_tl.h>

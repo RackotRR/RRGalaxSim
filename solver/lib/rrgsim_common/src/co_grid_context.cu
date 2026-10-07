@@ -1,4 +1,4 @@
-#include "co_grid_context.h"
+#include "co_grid_context.cuh"
 #include "co_device_utils.cuh"
 #include "co_device_structs.cuh"
 #include <spdlog/spdlog.h>

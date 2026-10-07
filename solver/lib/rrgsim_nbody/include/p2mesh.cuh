@@ -2,7 +2,7 @@
 #include <co_sim_params.h>
 #include <co_device_structs.cuh>
 #include <co_particles_context.cuh>
-#include <co_grid_context.h>
+#include <co_grid_context.cuh>
 
 namespace rrgsim::p2mesh {
     using common::sGridContext_;

@@ -1,4 +1,4 @@
-#include "wave.h"
+#include "wave.cuh"
 #include <cuda_runtime.h>
 #include <spdlog/spdlog.h>
 #include <co_device_utils.cuh>

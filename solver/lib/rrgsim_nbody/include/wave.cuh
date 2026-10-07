@@ -1,6 +1,6 @@
 #pragma once
 #include <co_device_structs.cuh>
-#include <co_grid_context.h>
+#include <co_grid_context.cuh>
 
 namespace rrgsim::wave {
 

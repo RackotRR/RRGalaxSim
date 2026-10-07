@@ -1,5 +1,5 @@
 #include "rrgsim_nbody.h"
-#include "rrgsim_conservation.h"
+#include "rrgsim_conservation.cuh"
 
 #include <co_particles_context.cuh>
 

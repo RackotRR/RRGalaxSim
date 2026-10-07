@@ -2,11 +2,11 @@
 
 #include <co_device_utils.cuh>
 #include <co_device_structs.cuh>
-#include <co_grid_context.h>
+#include <co_grid_context.cuh>
 
 #include <spdlog/spdlog.h>
 
-#include "p2mesh.h"
+#include "p2mesh.cuh"
 
 namespace rrgsim::p2mesh {
 
@@ -159,6 +159,75 @@ __global__ void computeCellPhiUnsorted(
 
     int i_cell = particles_cell_info[i_particle].cell_id;
 	atomicAdd(&cell_phi[i_cell], particle_phi[i_particle] / cellInfo[i_cell].count);
+}
+
+
+__global__ void acc_field(
+	real3* cell_acc, // сила на единицу массы
+	const real* cell_phi
+)
+{
+    int ix = threadIdx.x + blockIdx.x * blockDim.x;
+    int iy = threadIdx.y + blockIdx.y * blockDim.y;
+    int iz = threadIdx.z + blockIdx.z * blockDim.z;
+    const int NX = grid_info_.nx;
+    const real DX = grid_info_.dx;
+
+	int xyz = AT(ix, iy, iz);
+
+	real3 dphi;
+
+	if (ix == 0) {
+		dphi.x = cell_phi[AT(ix + 1, iy, iz)] - cell_phi[xyz];
+	}
+	else if (ix == NX - 1) {
+		dphi.x = cell_phi[xyz] - cell_phi[AT(ix - 1, iy, iz)];
+	}
+	else {
+		dphi.x = 0.5 * (cell_phi[AT(ix + 1, iy, iz)] - cell_phi[AT(ix - 1, iy, iz)]);
+	}
+
+	if (iy == 0) {
+		dphi.y = cell_phi[AT(ix, iy + 1, iz)] - cell_phi[xyz];
+	}
+	else if (iy == NX - 1) {
+		dphi.y = cell_phi[xyz] - cell_phi[AT(ix, iy - 1, iz)];
+	}
+	else {
+		dphi.y = 0.5 * (cell_phi[AT(ix, iy + 1, iz)] - cell_phi[AT(ix, iy - 1, iz)]);
+	}
+
+	if (iz == 0) {
+		dphi.z = cell_phi[AT(ix, iy, iz + 1)] - cell_phi[xyz];
+	}
+	else if (iz == NX - 1) {
+		dphi.z = cell_phi[xyz] - cell_phi[AT(ix, iy, iz - 1)];
+	}
+	else {
+		dphi.z = 0.5 * (cell_phi[AT(ix, iy, iz + 1)] - cell_phi[AT(ix, iy, iz - 1)]);
+	}
+
+    real coef = -1. / DX;
+	dphi.x *= coef;
+	dphi.y *= coef;
+	dphi.z *= coef;
+
+	cell_acc[xyz] = dphi;
+}
+
+void calc_acceleration_field(
+    const sGridContext_ grid_
+)
+{
+    spdlog::info("calc_acceleration_field");
+    RR::CUDA::CuDeviceSync();
+
+    auto over = OverInfo::calc(grid_->info.nx, 0);
+
+    RR::CUDA::CuCall(acc_field, over.cells, over.blocks) (
+        grid_->acc_,
+        grid_->grav_curr_
+    );
 }
 
 void convert_particles_to_grid(

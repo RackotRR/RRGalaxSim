@@ -2,7 +2,7 @@
 #include <co_device_utils.cuh>
 #include <co_device_structs.cuh>
 
-#include "mesh2p.h"
+#include "mesh2p.cuh"
 
 #include <spdlog/spdlog.h>
 

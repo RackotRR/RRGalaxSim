@@ -1,7 +1,7 @@
 #include <co_sim_params.h>
 #include <co_particles.h>
 #include <co_particles_context.cuh>
-#include <co_grid_context.h>
+#include <co_grid_context.cuh>
 #include <co_device_utils.cuh>
 
 #include "io_particles.h"
@@ -12,11 +12,11 @@
 #include <numeric>
 
 #include "rrgsim_log.h"
-#include "rrgsim_conservation.h"
+#include "rrgsim_conservation.cuh"
 #include "nbody.cuh"
-#include "p2mesh.h"
-#include "mesh2p.h"
-#include "wave.h"
+#include "p2mesh.cuh"
+#include "mesh2p.cuh"
+#include "wave.cuh"
 
 #include "rrgsim_nbody.h"
 

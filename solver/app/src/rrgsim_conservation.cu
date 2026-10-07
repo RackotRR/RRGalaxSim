@@ -1,4 +1,4 @@
-#include "rrgsim_conservation.h"
+#include "rrgsim_conservation.cuh"
 #include <spdlog/spdlog.h>
 #include <co_device_utils.cuh>
 #include <io_handler.h>

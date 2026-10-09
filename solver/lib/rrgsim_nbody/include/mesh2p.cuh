@@ -13,6 +13,11 @@ void project_grid_acceleration_on_particles(
     sParticlesContext_ particles_context_
 );
 
+void project_grid_grav_on_particles(
+    const sGridContext_ grid_context_,
+    sParticlesContext_ particles_context_
+);
+
 GridProjectionOnParticles
 project_grid_onto_particles(
     sGridContext_ grid_context_,

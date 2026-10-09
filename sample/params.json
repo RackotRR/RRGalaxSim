@@ -1,0 +1,27 @@
+{
+    "ini_params": {
+        "mass_star": 1.0,
+        "mass_dark": 1.0,
+        "soft_star": 0.004,
+        "soft_dark": 0.004,
+        "ini_file_star": "ini\\S.txt",
+        "ini_file_dark": null
+    },
+    "sim_params": {
+        "time_max": 1.0,
+        "dt_save": 0.1,
+        "dt_dynamics": 0.002,
+        "acceleration_model": "Wave"
+    },
+    "grid_params": {
+        "nx": 256,
+        "dx": 0.05,
+        "bc_frac": 0.2
+    },
+    "wave_params": {
+        "diss_base": 0.1,
+        "diss_extra": 0.01,
+        "wave_speed": 4574.337022617616,
+        "setup_iterations": 20000
+    }
+}

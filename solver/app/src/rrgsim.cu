@@ -19,6 +19,7 @@
 #include "wave.cuh"
 
 #include "rrgsim_nbody.h"
+#include "rrgsim_pic.h"
 
 void print_grav_projection(
     rrgsim::common::sGridContext grid_context
@@ -151,11 +152,17 @@ int main(int argc, const char** argv) {
         }
 
         try {
-            check_grid(
+            rrgsim::integrate_PIC(
                 std::move(expected_particles_data).value(),
+                std::move(parsed.sim_params),
                 std::move(parsed.mb_grid_info).value(),
                 parsed.mb_wave_params.value()
             );
+            // check_grid(
+            //     std::move(expected_particles_data).value(),
+            //     std::move(parsed.mb_grid_info).value(),
+            //     parsed.mb_wave_params.value()
+            // );
             // ::integrate_nbody(
             //     std::move(expected_particles_data).value(),
             //     std::move(parsed.sim_params),

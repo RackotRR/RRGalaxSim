@@ -6,6 +6,7 @@ add_executable(${PROJECT_NAME}
     src/rrgsim_log.cpp
     src/rrgsim_conservation.cu
     src/rrgsim_nbody.cu
+    src/rrgsim_pic.cu
 )
 
 target_include_directories(${PROJECT_NAME}

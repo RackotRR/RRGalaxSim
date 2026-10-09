@@ -50,7 +50,7 @@ __global__ void projectAccelerationOnParticles(
 }
 
 void project_grid_acceleration_on_particles(
-    sGridContext_ grid_context_,
+    const sGridContext_ grid_context_,
     sParticlesContext_ particles_context_
 )
 {
@@ -65,6 +65,22 @@ void project_grid_acceleration_on_particles(
         particles_context_->acc_
     );
 
+}
+
+void project_grid_grav_on_particles(
+    const sGridContext_ grid_context_,
+    sParticlesContext_ particles_context_
+)
+{
+    spdlog::info("project_grid_grav_on_particles");
+    RR::CUDA::CuDeviceSync();
+
+    auto over = rrgsim::common::OverInfo::calc(0, particles_context_->info.ntotal);
+    RR::CUDA::CuCall(projectCellPhiOnParticles, over.particles, over.blocks) (
+        grid_context_->grav_curr_,
+        grid_context_->particles_cell_info_,
+        particles_context_->grav_
+    );
 }
 
 GridProjectionOnParticles
@@ -89,6 +105,11 @@ project_grid_onto_particles(
         grid_context_->cell_info_,
         particles_context_->mass_
     );
+    // RR::CUDA::CuCall(projectAccelerationOnParticles, over.particles, over.blocks) (
+    //     grid_context_->acc_,
+    //     grid_context_->particles_cell_info_,
+    //     particles_context_->acc_
+    // );
 
     GridProjectionOnParticles projection;
     projection.grav = particles_context_->grav_.to_vector();

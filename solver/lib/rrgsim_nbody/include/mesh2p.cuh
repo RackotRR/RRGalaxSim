@@ -8,6 +8,11 @@ using rrgsim::common::GridProjectionOnParticles;
 using rrgsim::common::sGridContext_;
 using rrgsim::common::sParticlesContext_;
 
+void project_grid_acceleration_on_particles(
+    sGridContext_ grid_context_,
+    sParticlesContext_ particles_context_
+);
+
 GridProjectionOnParticles
 project_grid_onto_particles(
     sGridContext_ grid_context_,

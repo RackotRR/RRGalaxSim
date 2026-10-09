@@ -36,6 +36,36 @@ __global__ void projectCellPhiOnParticles(
     particle_phi[i_particle] = cell_phi[i_cell];
 }
 
+__global__ void projectAccelerationOnParticles(
+    const real3* cell_acc,
+    const ParticleCellInfo* particles_cell_info,
+	real3* particle_acceleration
+)
+{
+    int i_particle = threadIdx.x + blockIdx.x * blockDim.x;
+    int i_cell = particles_cell_info[i_particle].cell_id;
+	particle_acceleration[i_particle].x = cell_acc[i_cell].x;
+	particle_acceleration[i_particle].y = cell_acc[i_cell].y;
+	particle_acceleration[i_particle].z = cell_acc[i_cell].z;
+}
+
+void project_grid_acceleration_on_particles(
+    sGridContext_ grid_context_,
+    sParticlesContext_ particles_context_
+)
+{
+    spdlog::info("project_grid_acceleration_on_particles");
+    RR::CUDA::CuDeviceSync();
+
+    auto over = rrgsim::common::OverInfo::calc(0, particles_context_->info.ntotal);
+
+    RR::CUDA::CuCall(projectAccelerationOnParticles, over.particles, over.blocks) (
+        grid_context_->acc_,
+        grid_context_->particles_cell_info_,
+        particles_context_->acc_
+    );
+
+}
 
 GridProjectionOnParticles
 project_grid_onto_particles(

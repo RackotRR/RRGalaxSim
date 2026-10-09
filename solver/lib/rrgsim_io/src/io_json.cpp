@@ -138,6 +138,12 @@ namespace rrgsim::io {
     tl::expected<ParsedParams, std::string>
     parse_params_json(const std::filesystem::path& path) {
         try {
+            if (false == std::filesystem::exists(path)) {
+                return tl::make_unexpected(
+                    fmt::format("Expected params json: '{}'", path.string())
+                );
+            }
+
             std::ifstream stream{ path };
             nlohmann::json json; stream >> json;
 

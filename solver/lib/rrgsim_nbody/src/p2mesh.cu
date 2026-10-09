@@ -5,6 +5,7 @@
 #include <co_grid_context.cuh>
 
 #include <spdlog/spdlog.h>
+#include <rrgsim_tl.h>
 
 #include "p2mesh.cuh"
 
@@ -230,6 +231,40 @@ void calc_acceleration_field(
     );
 }
 
+void init_p2mesh_context(
+    sGridContext_ grid_,
+    const sParticlesContext_ particles_
+)
+{
+    tl::optional<OverInfo> mb_over;
+    auto over = [&mb_over, &grid_, &particles_](void) -> const OverInfo& {
+        if (false == mb_over.has_value()) {
+            mb_over = OverInfo::calc(grid_->info.nx, particles_->info.ntotal);
+        }
+        return mb_over.value();
+    };
+
+    if (nullptr == grid_->particles_cell_info_) {
+        grid_->particles_cell_info_ = CuDarray<ParticleCellInfo>(over().num_particles);
+    }
+    if (nullptr == grid_->cell_info_) {
+        grid_->cell_info_ = CuDarray<CellInfo>(over().num_cells);
+    }
+    if (nullptr == grid_->cell_particles_count_) {
+        grid_->cell_particles_count_ = CuDarray<int>(over().num_cells);
+    }
+    if (nullptr == grid_->particles_in_block_) {
+        grid_->particles_in_block_ = CuDarray<int>(over().num_cell_blocks);
+    }
+
+    if (mb_over) {
+        spdlog::info(
+            "init_p2mesh_context: GPU memory occupied now - {} MB",
+            CuDarray<real>::get_total_allocated_mb()
+        );
+    }
+}
+
 void convert_particles_to_grid(
     const sParticlesContext_ particles_,
     sGridContext_ grid_
@@ -240,26 +275,13 @@ void convert_particles_to_grid(
 
     auto over = OverInfo::calc(grid_->info.nx, particles_->info.ntotal);
 
-    if (nullptr == grid_->particles_cell_info_) {
-        grid_->particles_cell_info_ = CuDarray<ParticleCellInfo>(over.num_particles);
-    }
-    if (nullptr == grid_->cell_info_) {
-        grid_->cell_info_ = CuDarray<CellInfo>(over.num_cells);
-    }
-    if (nullptr == grid_->cell_particles_count_) {
-        grid_->cell_particles_count_ = CuDarray<int>(over.num_cells);
-    }
-    if (nullptr == grid_->particles_in_block_) {
-        grid_->particles_in_block_ = CuDarray<int>(over.num_cell_blocks);
-    }
+    init_p2mesh_context(grid_, particles_);
 
 	grid_->particles_cell_info_.set_zero();
 	grid_->cell_info_.set_zero();
 	grid_->cell_particles_count_.set_zero();
 	grid_->particles_in_block_.set_zero();
 	grid_->mass_.set_zero();
-
-    spdlog::info("convert_particles_to_grid: GPU memory occupied now - {} MB", CuDarray<real>::get_total_allocated_mb());
 
     RR::CUDA::CuCall(assignParticlesToCells, over.particles, over.blocks) (
         particles_->pos_,

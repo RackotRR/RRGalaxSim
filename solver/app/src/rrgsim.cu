@@ -28,17 +28,22 @@ void print_grav_projection(
     size_t NX = grid_context->info.nx;
 
     for (size_t xi = 0; xi < NX; ++xi) {
-        rrgsim::io::TagValue x{
-            "x",
-            grid_context->info.domain_min + grid_context->info.dx * xi
-        };
-        rrgsim::io::TagValue g{
-            "grav",
-            grid_context->grav[AT(xi, 50, 50)]
-        };
-        handler.append_table("grav_x_50_50", { x, g });
+        rrgsim::io::TagValue x{ "x", grid_context->info.domain_min + grid_context->info.dx * xi };
+        rrgsim::io::TagValue g{ "grav", grid_context->grav[AT(xi, NX / 2, NX / 2)] };
+        handler.append_table("grav_x_center", { x, g });
     }
 
+    for (size_t yi = 0; yi < NX; ++yi) {
+        rrgsim::io::TagValue y{ "y", grid_context->info.domain_min + grid_context->info.dx * yi };
+        rrgsim::io::TagValue g{ "grav", grid_context->grav[AT(NX / 2, yi, NX / 2)] };
+        handler.append_table("grav_y_center", { y, g });
+    }
+
+    for (size_t zi = 0; zi < NX; ++zi) {
+        rrgsim::io::TagValue z{ "z", grid_context->info.domain_min + grid_context->info.dx * zi };
+        rrgsim::io::TagValue g{ "grav", grid_context->grav[AT(NX / 2, NX / 2, zi)] };
+        handler.append_table("grav_z_center", { z, g });
+    }
 }
 
 void print_grid_nbody_projection(
@@ -68,6 +73,12 @@ void check_grid(
     rrgsim::common::WaveParams wave_params
 )
 {
+    RR::CUDA::CuCopyToSymbol(
+        wave_params,
+        rrgsim::common::wave_params_,
+        RR::CUDA::ToDevice
+    );
+
     auto particles_context_ = rrgsim::common::initialize_particles_context_(particles_data);
     auto grid_context_ = rrgsim::common::initialize_grid_context_(grid_info);
     auto grid_context = rrgsim::common::initialize_grid_context(grid_info);
@@ -94,8 +105,6 @@ void check_grid(
     auto particles_context = rrgsim::common::initialize_particles_context(particles_data);
     particles_context->fill_device_data(particles_context_);
     auto conservation_nbody = rrgsim::nbody::calc_conservation(particles_context);
-    spdlog::info("Conservation N-Body");
-    rrgsim::conservation::print_conservation(conservation_nbody);
 
     auto grid_projected = rrgsim::mesh2p::project_grid_onto_particles(
         grid_context_,
@@ -103,11 +112,8 @@ void check_grid(
     );
     particles_context->grav = grid_projected.grav;
     auto conservation_grid_projected = rrgsim::nbody::calc_conservation(particles_context);
-    spdlog::info("Conservation Grid Projected");
-    rrgsim::conservation::print_conservation(conservation_grid_projected);
     spdlog::info("Conservation Grid Projected VS NBody");
     rrgsim::conservation::print_conservation(conservation_nbody, conservation_grid_projected);
-
 
     print_grid_nbody_projection("mass_nbody_grid", mass_nbody, grid_projected.mass, particles_data.pos);
     print_grid_nbody_projection("grav_nbody_grid", grav_nbody, grid_projected.grav, particles_data.pos);
@@ -137,13 +143,6 @@ int main(int argc, const char** argv) {
             return 0;
         }
         rrgsim::io::ParsedParams parsed = std::move(expected_parsed_params).value();
-        if (parsed.mb_grid_info && parsed.mb_wave_params) {
-            RR::CUDA::CuCopyToSymbol(
-                parsed.mb_wave_params.value(),
-                rrgsim::common::wave_params_,
-                RR::CUDA::ToDevice
-            );
-        }
 
         auto expected_particles_data = rrgsim::io::read_simple_particles_data(parsed.galaxy_data);
         if (false == expected_particles_data.has_value()) {

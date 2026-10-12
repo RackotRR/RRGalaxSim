@@ -14,8 +14,8 @@
         "acceleration_model": "Wave"
     },
     "grid_params": {
-        "nx": 256,
-        "dx": 0.05,
+        "nx": 512,
+        "dx": 0.025,
         "bc_frac": 0.2
     },
     "wave_params": {

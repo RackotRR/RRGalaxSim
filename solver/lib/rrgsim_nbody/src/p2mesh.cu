@@ -137,12 +137,10 @@ __global__ void adjustGlobalPrefixSums(
 __global__ void computeCellMassesUnsorted(
     const real* particle_mass,   	   // [N] упорядоченные частицы
     ParticleCellInfo* particles_cell_info,// [N] инфо: x=ячейка, y=индекс в ячейке
-    real* cellMasses,                // [TOTAL_CELLS] результат
-    const int numParticles)
+    real* cellMasses                // [TOTAL_CELLS] результат
+)
 {
     int i_particle = threadIdx.x + blockIdx.x * blockDim.x;
-    if (i_particle >= numParticles) return;
-
     int i_cell = particles_cell_info[i_particle].cell_id;
 	atomicAdd(&cellMasses[i_cell], particle_mass[i_particle]);
 }
@@ -152,14 +150,31 @@ __global__ void computeCellPhiUnsorted(
     const real* particle_phi,   	   // [N] упорядоченные частицы
     const ParticleCellInfo* particles_cell_info,// [N] инфо: x=ячейка, y=индекс в ячейке
     const CellInfo* cellInfo,     		 // [TOTAL_CELLS]
-    real* cell_phi,                // [TOTAL_CELLS] результат
-    const int numParticles)
+    real* cell_phi                // [TOTAL_CELLS] результат
+)
 {
     int i_particle = threadIdx.x + blockIdx.x * blockDim.x;
-    if (i_particle >= numParticles) return;
-
     int i_cell = particles_cell_info[i_particle].cell_id;
 	atomicAdd(&cell_phi[i_cell], particle_phi[i_particle] / cellInfo[i_cell].count);
+}
+
+// ====================================================
+__global__ void computeCellAccUnsorted(
+    const real3* particle_acc,   	   // [N] упорядоченные частицы
+    ParticleCellInfo* particles_cell_info,// [N] инфо: x=ячейка, y=индекс в ячейке
+    const CellInfo* cellInfo,     		 // [TOTAL_CELLS]
+    real3* cell_acc                // [TOTAL_CELLS] результат
+)
+{
+    int i_particle = threadIdx.x + blockIdx.x * blockDim.x;
+    int i_cell = particles_cell_info[i_particle].cell_id;
+
+    real3 a = particle_acc[i_particle];
+    real inv_count = 1. / cellInfo[i_cell].count;
+
+	atomicAdd(&cell_acc[i_cell].x, a.x * inv_count);
+	atomicAdd(&cell_acc[i_cell].y, a.y * inv_count);
+	atomicAdd(&cell_acc[i_cell].z, a.z * inv_count);
 }
 
 /// @brief Ядро расчета гравитационного ускорения из потенциала
@@ -355,15 +370,19 @@ void convert_particles_to_grid(
 	RR::CUDA::CuCall(computeCellMassesUnsorted, over.particles, over.blocks) (
 		particles_->mass_,
 		grid_->particles_cell_info_,
-		grid_->mass_,
-		over.num_particles
+		grid_->mass_
 	);
 	RR::CUDA::CuCall(computeCellPhiUnsorted, over.particles, over.blocks) (
 		particles_->grav_,
 		grid_->particles_cell_info_,
 		grid_->cell_info_,
-		grid_->grav_curr_,
-		over.num_particles
+		grid_->grav_curr_
+	);
+	RR::CUDA::CuCall(computeCellAccUnsorted, over.particles, over.blocks) (
+		particles_->acc_,
+		grid_->particles_cell_info_,
+		grid_->cell_info_,
+		grid_->acc_
 	);
 }
 

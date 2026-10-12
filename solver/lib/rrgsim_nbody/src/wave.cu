@@ -123,7 +123,7 @@ void solve_wave_equation(
 
 	for (int iter = 0; iter < wave_params.setup_iterations; ++iter) {
 		if (iter && iter % 500 == 0) {
-            spdlog::trace("wave_diss_iteration step: {}", iter);
+            spdlog::debug("wave_diss_iteration step: {}", iter);
 		}
 
         using rrgsim::common::BLOCK_SIZE_IN_3D;

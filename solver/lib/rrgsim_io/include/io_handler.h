@@ -21,7 +21,7 @@ namespace rrgsim::io {
 
         // TODO: мне не нравится, что файл открывается каждый раз
         void append_table(
-            std::string_view tag,
+            std::string tag,
             std::initializer_list<TagValue> items
         ) const;
 
@@ -41,7 +41,7 @@ namespace rrgsim::io {
 
         std::filesystem::path work_dir;
 
-        mutable std::unordered_set<std::string_view> filled;
+        mutable std::unordered_set<std::string> filled;
     };
 
 } // namespace rrgsim::io

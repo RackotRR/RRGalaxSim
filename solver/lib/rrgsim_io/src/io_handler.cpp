@@ -52,7 +52,7 @@ void IOHandler::fill_in_row(
     );
 }
 void IOHandler::append_table(
-    std::string_view tag,
+    std::string tag,
     std::initializer_list<TagValue> items
 ) const
 {
@@ -69,7 +69,7 @@ void IOHandler::append_table(
 
         fill_in_header(stream, items);
         filled.insert(tag);
-        spdlog::info("Add data table '{}'", tag);
+        spdlog::trace("Add data table '{}'", tag);
     }
 
     fill_in_row(stream, items);

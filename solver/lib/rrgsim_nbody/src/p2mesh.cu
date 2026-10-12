@@ -162,6 +162,53 @@ __global__ void computeCellPhiUnsorted(
 	atomicAdd(&cell_phi[i_cell], particle_phi[i_particle] / cellInfo[i_cell].count);
 }
 
+/// @brief Ядро расчета гравитационного ускорения из потенциала
+/// Использует центральные разности, 3D сетка потоков.
+/// accel:     выходной массив nx^3 векторов ускорения
+/// potential: массив nx^3 значений потенциала (layout: i + j*nx + k*nx*nx)
+__global__ void compute_acceleration_kernel(
+    real3* __restrict__ accel,
+    const real* __restrict__ potential
+)
+{
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = blockIdx.y * blockDim.y + threadIdx.y;
+    int k = blockIdx.z * blockDim.z + threadIdx.z;
+
+    const int nx = grid_info_.nx;
+
+    // Потоковые ядра без границ: обрабатываем только внутренние ячейки.
+    // Границы можно либо оставить нулевыми, либо заполнить односторонними разностями,
+    // либо вовсе исключить (см. bc_l в GridInfo — на границах нас интересует только sim_l).
+    if (i <= 0 || i >= nx - 1 ||
+        j <= 0 || j >= nx - 1 ||
+        k <= 0 || k >= nx - 1) {
+        int idx = i + j * nx + k * nx * nx;
+        accel[idx] = make_real3(0.f, 0.f, 0.f);
+        return;
+    }
+
+    const int nx2 = nx * nx;
+    const int idx  = i + j * nx + k * nx2;
+
+    // Соседи вдоль каждой оси
+    const real phi_xp = potential[idx + 1];
+    const real phi_xm = potential[idx - 1];
+    const real phi_yp = potential[idx + nx];
+    const real phi_ym = potential[idx - nx];
+    const real phi_zp = potential[idx + nx2];
+    const real phi_zm = potential[idx - nx2];
+
+    // g = -grad(phi) = -(dphi/dx, dphi/dy, dphi/dz)
+    const real inv_2dx = 1.f / (2.f * grid_info_.dx);
+
+    real3 g;
+    g.x = -(phi_xp - phi_xm) * inv_2dx;
+    g.y = -(phi_yp - phi_ym) * inv_2dx;
+    g.z = -(phi_zp - phi_zm) * inv_2dx;
+
+    accel[idx] = g;
+}
 
 __global__ void acc_field(
 	real3* cell_acc, // сила на единицу массы
@@ -223,9 +270,14 @@ void calc_acceleration_field(
     spdlog::info("calc_acceleration_field");
     RR::CUDA::CuDeviceSync();
 
-    auto over = OverInfo::calc(grid_->info.nx, 0);
+    using rrgsim::common::BLOCK_SIZE_IN_3D;
 
-    RR::CUDA::CuCall(acc_field, over.cells, over.blocks) (
+    unsigned blocks_count = static_cast<unsigned>(OverInfo::split_into_blocks(grid_->info.nx, BLOCK_SIZE_IN_3D));
+    dim3 threads_per_block{ BLOCK_SIZE_IN_3D, BLOCK_SIZE_IN_3D, BLOCK_SIZE_IN_3D };
+    dim3 blocks_per_grid{ blocks_count, blocks_count, blocks_count };
+
+    // RR::CUDA::CuCall(acc_field, blocks_per_grid, threads_per_block) (
+    RR::CUDA::CuCall(compute_acceleration_kernel, blocks_per_grid, threads_per_block) (
         grid_->acc_,
         grid_->grav_curr_
     );
@@ -306,6 +358,82 @@ void convert_particles_to_grid(
 		grid_->mass_,
 		over.num_particles
 	);
+	RR::CUDA::CuCall(computeCellPhiUnsorted, over.particles, over.blocks) (
+		particles_->grav_,
+		grid_->particles_cell_info_,
+		grid_->cell_info_,
+		grid_->grav_curr_,
+		over.num_particles
+	);
+}
+
+
+/// @brief Ядро для расчета гравитационного потенциала
+/// Использует 3D сетку потоков
+__global__ void calc_grav_by_center_of_mass_(
+    real* __restrict__ potential,
+    real3 center_of_mass,
+    real total_mass
+)
+{
+    // 3D индексы
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = blockIdx.y * blockDim.y + threadIdx.y;
+    int k = blockIdx.z * blockDim.z + threadIdx.z;
+
+    int nx = grid_info_.nx;
+
+    // Проверка границ
+    if (i >= nx || j >= nx || k >= nx) return;
+
+    // Линейный индекс
+    int idx = i + j * nx + k * nx * nx;
+
+    // Координаты ячейки
+    real x = grid_info_.domain_min + (i + 0.5) * grid_info_.dx;
+    real y = grid_info_.domain_min + (j + 0.5) * grid_info_.dx;
+    real z = grid_info_.domain_min + (k + 0.5) * grid_info_.dx;
+
+    // Вектор от центра масс до точки
+    real dx_pos = x - center_of_mass.x;
+    real dy_pos = y - center_of_mass.y;
+    real dz_pos = z - center_of_mass.z;
+
+    // Квадрат расстояния
+    real r2 = dx_pos * dx_pos + dy_pos * dy_pos + dz_pos * dz_pos;
+
+    // Расстояние (с защитой от деления на ноль)
+    real r = sqrtf(r2);
+
+    // Минимальное расстояние для избежания сингулярности
+    const real softening = 0.01;
+    r = fmaxf(r, softening);
+
+    // Гравитационный потенциал: phi = -G * M / r
+	const real G = 1.;
+    potential[idx] = -G * total_mass / r;
+}
+
+void calc_grav_by_center_of_mass(
+    rrgsim::common::sGridContext_ grid_,
+    real3 center_of_mass,
+    real total_mass
+)
+{
+    using rrgsim::common::BLOCK_SIZE_IN_3D;
+    using rrgsim::common::OverInfo;
+
+    unsigned blocks_count = static_cast<unsigned>(OverInfo::split_into_blocks(grid_->info.nx, BLOCK_SIZE_IN_3D));
+    dim3 threads_per_block{ BLOCK_SIZE_IN_3D, BLOCK_SIZE_IN_3D, BLOCK_SIZE_IN_3D };
+    dim3 blocks_per_grid{ blocks_count, blocks_count, blocks_count };
+
+    RR::CUDA::CuCall(calc_grav_by_center_of_mass_, blocks_per_grid, threads_per_block) (
+        grid_->grav_curr_,
+        center_of_mass,
+        total_mass
+    );
+
+    RR::CUDA::CuDeviceSync();
 }
 
 } // namespace rrgsim::p2mesh

@@ -11,6 +11,7 @@ void ParticlesContext::fill_device_data(
     context_->mass_.to_vector(this->mass);
     context_->vel_.to_vector(this->vel);
     context_->pos_.to_vector(this->pos);
+    context_->acc_.to_vector(this->acc);
     context_->grav_.to_vector(this->grav);
     this->time = context_->time;
 }
@@ -22,7 +23,7 @@ initialize_particles_context_(
     const common::ParticlesData& particles_data
 )
 {
-    spdlog::info("Initialize device particles context");
+    spdlog::debug("Initialize device particles context");
 
     sParticlesContext_ context = std::make_shared<ParticlesContext_>();
     context->pos_ = particles_data.pos;
@@ -48,7 +49,7 @@ initialize_particles_context(
     common::ParticlesData particles_data
 )
 {
-    spdlog::info("Initialize host particles context");
+    spdlog::debug("Initialize host particles context");
 
     auto particles_context = std::make_shared<rrgsim::common::ParticlesContext>();
     particles_context->mass = std::move(particles_data.mass);

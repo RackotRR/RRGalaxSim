@@ -1,5 +1,6 @@
 #include "rrgsim_conservation.cuh"
 #include <spdlog/spdlog.h>
+#include <fmt/format.h>
 #include <co_device_utils.cuh>
 #include <io_handler.h>
 
@@ -97,12 +98,15 @@ void print_conservation(
     const rrgsim::nbody::ConservationInfo& info
 )
 {
-    spdlog::info("-- momentum:");
+    using rrgsim::common::norm;
+    spdlog::info("------------------------------------------");
+    spdlog::info("Conservation time: {}", info.time);
+    spdlog::info("-- momentum: {:.15f}", norm(info.momentum));
     spdlog::info("\t x {:.15f}", info.momentum.x);
     spdlog::info("\t y {:.15f}", info.momentum.y);
     spdlog::info("\t z {:.15f}", info.momentum.z);
 
-    spdlog::info("-- angular momentum:");
+    spdlog::info("-- angular momentum: {:.15f}", norm(info.angular));
     spdlog::info("\t x {:.15f}", info.angular.x);
     spdlog::info("\t y {:.15f}", info.angular.y);
     spdlog::info("\t z {:.15f}", info.angular.z);
@@ -127,6 +131,9 @@ void print_conservation(
         info.angular,
         info0.angular
     );
+
+    spdlog::info("------------------------------------------");
+    spdlog::info("Conservation time: {}", info.time);
 
     spdlog::info(
         "-- momentum: diff {} ; rel {}",
@@ -210,9 +217,9 @@ void check_bounds(
     const rrgsim::common::GridInfo& grid_info
 )
 {
-    spdlog::info("Check bounds");
+    spdlog::debug("Check bounds");
     if (particles_pos.empty()) {
-        spdlog::debug("\t No particles_pos passed");
+        spdlog::trace("\t No particles_pos passed");
         return;
     }
 
@@ -232,9 +239,9 @@ void check_bounds(
         min_z = std::min(min_z, p.z);
     }
 
-    spdlog::info("\t X: [{} .. {}]", min_x, max_x);
-    spdlog::info("\t Y: [{} .. {}]", min_y, max_y);
-    spdlog::info("\t Z: [{} .. {}]", min_z, max_z);
+    spdlog::debug("\t X: [{} .. {}]", min_x, max_x);
+    spdlog::debug("\t Y: [{} .. {}]", min_y, max_y);
+    spdlog::debug("\t Z: [{} .. {}]", min_z, max_z);
 
 #define MIN_BOUNDS_VIOLATION_MESSAGE "{0} min bounds violation! Particle {0}: {1}; domain_min: {2}"
 #define MAX_BOUNDS_VIOLATION_MESSAGE "{0} max bounds violation! Particle {0}: {1}; domain_max: {2}"
@@ -259,4 +266,71 @@ void check_bounds(
     }
 }
 
+void print_sample_particle(
+    rrgsim::common::sParticlesContext particles_context
+)
+{
+    if (particles_context->pos.size() > 0) {
+        auto& io_handler = rrgsim::io::IOHandler::instance();
+        auto& p = particles_context->pos[0];
+        auto& v = particles_context->vel[0];
+        auto& g = particles_context->grav[0];
+        auto& a = particles_context->acc[0];
+
+        rrgsim::io::TagValue i{ "i", 0 };
+        rrgsim::io::TagValue x{ "x", p.x };
+        rrgsim::io::TagValue y{ "y", p.y };
+        rrgsim::io::TagValue z{ "z", p.z };
+        rrgsim::io::TagValue vx{ "vx", v.x };
+        rrgsim::io::TagValue vy{ "vy", v.y };
+        rrgsim::io::TagValue vz{ "vz", v.z };
+        rrgsim::io::TagValue grav{ "grav", g };
+        rrgsim::io::TagValue ax{ "ax", a.x };
+        rrgsim::io::TagValue ay{ "ay", a.y };
+        rrgsim::io::TagValue az{ "az", a.z };
+
+        io_handler.append_table("sample_particle", { i, x, y, z, vx, vy, vz, grav, ax, ay, az } );
+    }
+}
+void print_acc_projection(
+    rrgsim::common::sGridContext grid_context
+)
+{
+    auto& handler = rrgsim::io::IOHandler::instance();
+    size_t NX = grid_context->info.nx;
+
+    for (size_t xi = 0; xi < NX; ++xi) {
+        rrgsim::io::TagValue x{ "x", grid_context->info.domain_min + grid_context->info.dx * xi };
+        rrgsim::io::TagValue ax{ "ax", grid_context->acc[AT(xi, NX / 2, NX / 2)].x };
+        rrgsim::io::TagValue ay{ "ay", grid_context->acc[AT(xi, NX / 2, NX / 2)].y };
+        rrgsim::io::TagValue az{ "az", grid_context->acc[AT(xi, NX / 2, NX / 2)].z };
+        handler.append_table(fmt::format("a_grid_center_{:.08f}", grid_context->time), { x, ax, ay, az });
+    }
+}
+
+void print_grav_projection(
+    rrgsim::common::sGridContext grid_context
+)
+{
+    auto& handler = rrgsim::io::IOHandler::instance();
+    size_t NX = grid_context->info.nx;
+
+    for (size_t xi = 0; xi < NX; ++xi) {
+        rrgsim::io::TagValue x{ "x", grid_context->info.domain_min + grid_context->info.dx * xi };
+        rrgsim::io::TagValue g{ "grav", grid_context->grav[AT(xi, NX / 2, NX / 2)] };
+        handler.append_table(fmt::format("grav_x_center_{:.08f}", grid_context->time), { x, g });
+    }
+
+    for (size_t yi = 0; yi < NX; ++yi) {
+        rrgsim::io::TagValue y{ "y", grid_context->info.domain_min + grid_context->info.dx * yi };
+        rrgsim::io::TagValue g{ "grav", grid_context->grav[AT(NX / 2, yi, NX / 2)] };
+        handler.append_table(fmt::format("grav_y_center_{:.08f}", grid_context->time), { y, g });
+    }
+
+    for (size_t zi = 0; zi < NX; ++zi) {
+        rrgsim::io::TagValue z{ "z", grid_context->info.domain_min + grid_context->info.dx * zi };
+        rrgsim::io::TagValue g{ "grav", grid_context->grav[AT(NX / 2, NX / 2, zi)] };
+        handler.append_table(fmt::format("grav_z_center_{:.08f}", grid_context->time), { z, g });
+    }
+}
 } // namespace rrgsim::conservation

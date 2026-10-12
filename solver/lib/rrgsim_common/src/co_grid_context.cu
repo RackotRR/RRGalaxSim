@@ -11,6 +11,7 @@ void GridContext::fill_device_data(
 {
     context_->grav_curr_.to_vector(this->grav);
     context_->mass_.to_vector(this->mass);
+    context_->acc_.to_vector(this->acc);
 
     this->time = context_->time;
 }
@@ -44,6 +45,7 @@ initialize_grid_context(
     GridInfo grid_info
 )
 {
+    spdlog::debug("initialize_grid_context");
     sGridContext context = std::make_shared<GridContext>();
 
     size_t nx3 = rrgsim::common::cube(grid_info.nx);

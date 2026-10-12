@@ -50,6 +50,7 @@ namespace rrgsim::common {
         real time = 0.;
         std::vector<real> mass;
         std::vector<real> grav;
+        std::vector<real3> acc;
         GridInfo info;
 
         void fill_device_data(

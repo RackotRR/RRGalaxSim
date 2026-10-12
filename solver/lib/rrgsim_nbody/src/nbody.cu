@@ -178,7 +178,6 @@ __global__ void correct_step_(
 	);
 }
 
-
 void predict_step(
     sParticlesContext_ context_,
     const SimParams& sim_params
@@ -246,7 +245,7 @@ ConservationInfo calc_conservation(
     sParticlesContext context
 )
 {
-    spdlog::info("NBody::conservation");
+    spdlog::debug("NBody::conservation");
     const auto& pos = context->pos;
     const auto& vel = context->vel;
     const auto& mass = context->mass;
@@ -287,6 +286,154 @@ ConservationInfo calc_conservation(
     info.Ep *= 0.5;
     info.time = context->time;
     return info;
+}
+
+/// @brief Ядро для расчета центра масс (первый проход - суммирование)
+__global__ void compute_center_of_mass_kernel(
+    const real3* __restrict__ positions,
+    const real* __restrict__ masses,
+    real3* __restrict__ partial_sums,  // Для блочного суммирования
+    real* __restrict__ partial_mass_sums,
+    int num_particles)
+{
+    // Динамическая разделяемая память для блочной редукции
+    extern __shared__ char shared_mem[];
+    real3* shared_pos = reinterpret_cast<real3*>(shared_mem);
+    real* shared_mass = reinterpret_cast<real*>(shared_mem + blockDim.x * sizeof(real3));
+
+    int tid = threadIdx.x;
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // Инициализация
+    real3 local_sum = make_real3(0.0f, 0.0f, 0.0f);
+    real local_mass = 0.0f;
+
+    // Загрузка и умножение массы на позицию
+    if (idx < num_particles) {
+        real m = masses[idx];
+        real3 pos = positions[idx];
+        local_sum.x = pos.x * m;
+        local_sum.y = pos.y * m;
+        local_sum.z = pos.z * m;
+        local_mass = m;
+    }
+
+    shared_pos[tid] = local_sum;
+    shared_mass[tid] = local_mass;
+    __syncthreads();
+
+    // Блочная редукция
+    for (int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (tid < s) {
+            shared_pos[tid].x += shared_pos[tid + s].x;
+            shared_pos[tid].y += shared_pos[tid + s].y;
+            shared_pos[tid].z += shared_pos[tid + s].z;
+            shared_mass[tid] += shared_mass[tid + s];
+        }
+        __syncthreads();
+    }
+
+    // Запись результата блока
+    if (tid == 0) {
+        partial_sums[blockIdx.x] = shared_pos[0];
+        partial_mass_sums[blockIdx.x] = shared_mass[0];
+    }
+}
+
+/// @brief Финальное ядро для суммирования частичных результатов
+__global__ void finalize_center_of_mass_kernel(
+    const real3* __restrict__ partial_sums,
+    const real* __restrict__ partial_mass_sums,
+    int num_blocks,
+    real3* __restrict__ center_of_mass,
+    real* __restrict__ total_mass)
+{
+    extern __shared__ char shared_mem[];
+    real3* shared_pos = reinterpret_cast<real3*>(shared_mem);
+    real* shared_mass = reinterpret_cast<real*>(shared_mem + blockDim.x * sizeof(real3));
+
+    int tid = threadIdx.x;
+
+    real3 local_sum = make_real3(0.0f, 0.0f, 0.0f);
+    real local_mass = 0.0f;
+
+    // Загрузка с шагом
+    for (int i = tid; i < num_blocks; i += blockDim.x) {
+        local_sum.x += partial_sums[i].x;
+        local_sum.y += partial_sums[i].y;
+        local_sum.z += partial_sums[i].z;
+        local_mass += partial_mass_sums[i];
+    }
+
+    shared_pos[tid] = local_sum;
+    shared_mass[tid] = local_mass;
+    __syncthreads();
+
+    // Редукция
+    for (int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (tid < s) {
+            shared_pos[tid].x += shared_pos[tid + s].x;
+            shared_pos[tid].y += shared_pos[tid + s].y;
+            shared_pos[tid].z += shared_pos[tid + s].z;
+            shared_mass[tid] += shared_mass[tid + s];
+        }
+        __syncthreads();
+    }
+
+    if (tid == 0) {
+        real M = shared_mass[0];
+        if (M > 0.0f) {
+            center_of_mass->x = shared_pos[0].x / M;
+            center_of_mass->y = shared_pos[0].y / M;
+            center_of_mass->z = shared_pos[0].z / M;
+        } else {
+            *center_of_mass = make_real3(0.0f, 0.0f, 0.0f);
+        }
+        *total_mass = M;
+    }
+}
+
+real3 calc_mass_center(
+	const sParticlesContext_ context_
+)
+{
+	spdlog::debug("calc_mass_center");
+
+	auto over = OverInfo::calc(0, context_->info.ntotal);
+
+	RR::CUDA::CuDarray<real3> d_partial_sums(over.num_particle_blocks);
+	RR::CUDA::CuDarray<real> d_partial_mass_sums(over.num_particle_blocks);
+	RR::CUDA::CuDarray<real3> d_center_of_mass_sums(1);
+	RR::CUDA::CuDarray<real> d_total_mass(1);
+
+	// Размер разделяемой памяти
+	size_t shared_mem_size = BLOCK_SIZE * (sizeof(real) + sizeof(real3));
+
+	// Первый проход
+	RR::CUDA::CuCall(compute_center_of_mass_kernel, over.num_particle_blocks, BLOCK_SIZE, shared_mem_size) (
+		context_->pos_,
+		context_->mass_,
+		d_partial_sums,
+		d_partial_mass_sums,
+		over.num_particles
+	);
+
+	// Финальный проход
+	RR::CUDA::CuCall(finalize_center_of_mass_kernel, 1, BLOCK_SIZE, shared_mem_size) (
+		d_partial_sums,
+		d_partial_mass_sums,
+		over.num_particle_blocks,
+		d_center_of_mass_sums,
+		d_total_mass
+	);
+
+	RR::CUDA::CuDeviceSync();
+
+	auto center_of_mass = d_center_of_mass_sums.to_vector();
+	auto total_mass = d_total_mass.to_vector();
+	spdlog::trace("\t total_mass: {}", total_mass.front());
+	spdlog::trace("\t center_of_mass: ({}, {}, {})", center_of_mass.front().x, center_of_mass.front().y, center_of_mass.front().z);
+	return center_of_mass.front();
 }
 
 } // namespace rrgsim::nbody

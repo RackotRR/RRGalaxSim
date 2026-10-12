@@ -19,7 +19,7 @@ __global__ void wave_diss_iteration(
     const real* mass
 )
 {
-	const int NX =              grid_info_.nx;
+	const int NX =            grid_info_.nx;
 	const real DX =           grid_info_.dx;
 	const real SIM_L =        grid_info_.sim_l;
 	const real BC_L =         grid_info_.bc_l;
@@ -118,12 +118,12 @@ void solve_wave_equation(
     rrgsim::common::WaveParams wave_params
 )
 {
-    spdlog::info("solve_wave_equation");
+    spdlog::debug("solve_wave_equation");
     RR::CUDA::CuDeviceSync();
 
 	for (int iter = 0; iter < wave_params.setup_iterations; ++iter) {
 		if (iter && iter % 500 == 0) {
-            spdlog::info("wave_diss_iteration step: {}", iter);
+            spdlog::trace("wave_diss_iteration step: {}", iter);
 		}
 
         using rrgsim::common::BLOCK_SIZE_IN_3D;
@@ -143,7 +143,7 @@ void solve_wave_equation(
 		swap(grid_->grav_curr_, grid_->grav_next_);
 	}
 
-    spdlog::info("solve_wave_equation succeed");
+    spdlog::debug("solve_wave_equation succeed");
 }
 
 } // namespace rrgsim::wave

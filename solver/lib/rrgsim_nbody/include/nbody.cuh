@@ -44,4 +44,7 @@ namespace rrgsim::nbody {
         const SimParams& sim_params
     );
 
+    real3 calc_mass_center(
+        const sParticlesContext_ context_
+    );
 } // namespace rrgsim::nbody

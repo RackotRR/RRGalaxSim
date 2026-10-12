@@ -25,6 +25,7 @@ void integrate_nbody(
     particles_context->grav = particles_context_->grav_.to_vector();
     const auto base_conservation_info = rrgsim::nbody::calc_conservation(particles_context);
     rrgsim::conservation::print_conservation(base_conservation_info);
+    rrgsim::conservation::print_sample_particle(particles_context);
 
     real time = 0.;
     real next_save = time + sim_params.dt_save;
@@ -61,6 +62,7 @@ void integrate_nbody(
                 base_conservation_info,
                 rrgsim::nbody::calc_conservation(particles_context)
             );
+            rrgsim::conservation::print_sample_particle(particles_context);
 
             next_save += sim_params.dt_save;
         }

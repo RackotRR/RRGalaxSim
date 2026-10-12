@@ -16,4 +16,10 @@ namespace rrgsim::p2mesh {
     void calc_acceleration_field(
         const sGridContext_ grid_
     );
+
+    void calc_grav_by_center_of_mass(
+        rrgsim::common::sGridContext_ grid_,
+        real3 center_of_mass,
+        real total_mass
+    );
 } // namespace rrgsim::p2mesh

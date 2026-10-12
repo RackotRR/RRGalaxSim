@@ -21,31 +21,6 @@
 #include "rrgsim_nbody.h"
 #include "rrgsim_pic.h"
 
-void print_grav_projection(
-    rrgsim::common::sGridContext grid_context
-)
-{
-    auto& handler = rrgsim::io::IOHandler::instance();
-    size_t NX = grid_context->info.nx;
-
-    for (size_t xi = 0; xi < NX; ++xi) {
-        rrgsim::io::TagValue x{ "x", grid_context->info.domain_min + grid_context->info.dx * xi };
-        rrgsim::io::TagValue g{ "grav", grid_context->grav[AT(xi, NX / 2, NX / 2)] };
-        handler.append_table("grav_x_center", { x, g });
-    }
-
-    for (size_t yi = 0; yi < NX; ++yi) {
-        rrgsim::io::TagValue y{ "y", grid_context->info.domain_min + grid_context->info.dx * yi };
-        rrgsim::io::TagValue g{ "grav", grid_context->grav[AT(NX / 2, yi, NX / 2)] };
-        handler.append_table("grav_y_center", { y, g });
-    }
-
-    for (size_t zi = 0; zi < NX; ++zi) {
-        rrgsim::io::TagValue z{ "z", grid_context->info.domain_min + grid_context->info.dx * zi };
-        rrgsim::io::TagValue g{ "grav", grid_context->grav[AT(NX / 2, NX / 2, zi)] };
-        handler.append_table("grav_z_center", { z, g });
-    }
-}
 
 void print_grid_nbody_projection(
     std::string filename,
@@ -85,20 +60,22 @@ void check_grid(
     auto grid_context = rrgsim::common::initialize_grid_context(grid_info);
     rrgsim::conservation::check_bounds(particles_data.pos, grid_info);
 
+    rrgsim::nbody::nbody_grav(particles_context_);
     rrgsim::p2mesh::convert_particles_to_grid(
         particles_context_,
         grid_context_
     );
 
-    rrgsim::wave::solve_wave_equation(
-        grid_context_,
-        wave_params
-    );
+    // auto mass_center = rrgsim::nbody::calc_mass_center(particles_context_);
+    // rrgsim::p2mesh::calc_grav_by_center_of_mass(grid_context_, mass_center, 1.);
+    // rrgsim::wave::solve_wave_equation(
+    //     grid_context_,
+    //     wave_params
+    // );
 
     grid_context->fill_device_data(grid_context_);
-    print_grav_projection(grid_context);
+    rrgsim::conservation::print_grav_projection(grid_context);
 
-    rrgsim::nbody::nbody_grav(particles_context_);
     auto grav_nbody = particles_context_->grav_.to_vector();
     auto mass_nbody = particles_data.mass;
 
@@ -163,9 +140,9 @@ int main(int argc, const char** argv) {
             //     std::move(parsed.mb_grid_info).value(),
             //     parsed.mb_wave_params.value()
             // );
-            // ::integrate_nbody(
+            // rrgsim::integrate_nbody(
             //     std::move(expected_particles_data).value(),
-            //     std::move(parsed.sim_params),
+            //     std::move(parsed.sim_params)
             // );
         }
         catch (const std::exception& ex) {

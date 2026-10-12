@@ -34,6 +34,7 @@ namespace rrgsim::common {
         real time = 0.;
         std::vector<real3> pos;
         std::vector<real3> vel;
+        std::vector<real3> acc;
         std::vector<real> mass;
         std::vector<real> grav;
 

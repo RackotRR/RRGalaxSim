@@ -146,4 +146,60 @@ void solve_wave_equation(
     spdlog::debug("solve_wave_equation succeed");
 }
 
+
+
+__global__ void fill_in_initial_grav_(
+    real* grav,
+    real3 mass_center,
+    real mass_value
+)
+{
+	const int NX = grid_info_.nx;
+	const real DX = grid_info_.dx;
+
+    int ix = threadIdx.x + blockIdx.x * blockDim.x;
+    int iy = threadIdx.y + blockIdx.y * blockDim.y;
+    int iz = threadIdx.z + blockIdx.z * blockDim.z;
+
+    real3 pos = make_real3(
+        grid_info_.domain_min + ix * DX,
+        grid_info_.domain_min + iy * DX,
+        grid_info_.domain_min + iz * DX
+    );
+
+    const real G = 1.;
+    const real softening = 0.01;
+
+    grav[AT(ix, iy, iz)] = -G * mass_value / (rrgsim::common::distance(pos, mass_center) + softening);
+}
+
+void fill_in_initial_grav(
+    rrgsim::common::sGridContext_ grid_,
+    real3 mass_center,
+    real mass_value
+)
+{
+    spdlog::debug("fill_in_initial_grav");
+
+    using rrgsim::common::BLOCK_SIZE_IN_3D;
+    using rrgsim::common::OverInfo;
+
+    unsigned threads_count = BLOCK_SIZE_IN_3D;
+    unsigned blocks_count = static_cast<unsigned>(OverInfo::split_into_blocks(grid_->info.nx, BLOCK_SIZE_IN_3D));
+    dim3 threads_per_block{ threads_count, threads_count, threads_count };
+    dim3 blocks_per_grid{ blocks_count, blocks_count, blocks_count };
+
+    RR::CUDA::CuCall(fill_in_initial_grav_, blocks_per_grid, threads_per_block) (
+        grid_->grav_curr_,
+        mass_center,
+        mass_value
+    );
+
+    RR::CUDA::CuCopyFromTo(
+        grid_->grav_curr_,
+        grid_->grav_prev_,
+        RR::CUDA::DeviceToDevice
+    );
+}
+
 } // namespace rrgsim::wave

@@ -53,15 +53,19 @@ void integrate_PIC(
     // rrgsim::nbody::nbody_grav(particles_context_);
     // rrgsim::nbody::nbody_acceleration(particles_context_);
     rrgsim::p2mesh::convert_particles_to_grid(particles_context_, grid_context_);
+
+    // rrgsim::wave::fill_in_initial_grav(
+    //     grid_context_,
+    //     rrgsim::nbody::calc_mass_center(particles_context_),
+    //     1.
+    // );
     rrgsim::wave::solve_wave_equation(grid_context_, wave_params);
+
     // {
     //     auto mass_center = rrgsim::nbody::calc_mass_center(particles_context_);
     //     rrgsim::p2mesh::calc_grav_by_center_of_mass(grid_context_, mass_center, 1.);
     // }
     rrgsim::p2mesh::calc_acceleration_field(grid_context_);
-
-    // далее не требуется много итераций, используем начальное приближение
-    wave_params.setup_iterations = 5000;
 
     rrgsim::mesh2p::project_grid_grav_on_particles(grid_context_, particles_context_);
     rrgsim::mesh2p::project_grid_acceleration_on_particles(grid_context_, particles_context_);

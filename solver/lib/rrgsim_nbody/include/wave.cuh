@@ -9,4 +9,10 @@ namespace rrgsim::wave {
         rrgsim::common::WaveParams wave_params
     );
 
+    void fill_in_initial_grav(
+        rrgsim::common::sGridContext_ grid_,
+        real3 mass_center,
+        real mass_value
+    );
+
 } // namespace rrgsim::wave

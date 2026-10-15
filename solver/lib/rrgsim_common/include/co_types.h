@@ -1,6 +1,6 @@
 #pragma once
 
-#define USE_FP32
+// #define USE_FP32
 
 #ifdef USE_FP32
 #define real float

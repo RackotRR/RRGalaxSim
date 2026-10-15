@@ -13,6 +13,16 @@ namespace rrgsim::p2mesh {
         sGridContext_ grid_
     );
 
+    void project_particles_acceleration_on_grid(
+        const sParticlesContext_ particles_context_,
+        sGridContext_ grid_context_
+    );
+
+    void project_particles_grav_on_grid(
+        const sParticlesContext_ particles_context_,
+        sGridContext_ grid_context_
+    );
+
     void calc_acceleration_field(
         const sGridContext_ grid_
     );

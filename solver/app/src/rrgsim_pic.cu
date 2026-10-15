@@ -26,6 +26,12 @@ void print_max_particles_in_cell(
     spdlog::info("Max count in cell: {}", max_count);
 }
 
+enum class Method {
+    NBody,
+    Wave,
+    MassCenter
+};
+
 void integrate_PIC(
     ParticlesData particles_data,
     SimParams sim_params,
@@ -50,25 +56,73 @@ void integrate_PIC(
         RR::CUDA::ToDevice
     );
 
-    // rrgsim::nbody::nbody_grav(particles_context_);
-    // rrgsim::nbody::nbody_acceleration(particles_context_);
-    rrgsim::p2mesh::convert_particles_to_grid(particles_context_, grid_context_);
+    Method method = Method::Wave;
 
-    // rrgsim::wave::fill_in_initial_grav(
-    //     grid_context_,
-    //     rrgsim::nbody::calc_mass_center(particles_context_),
-    //     1.
-    // );
-    rrgsim::wave::solve_wave_equation(grid_context_, wave_params);
+    // Расчёт потенциала в начальный момент времени
+    if (method == Method::NBody) {
+        rrgsim::nbody::nbody_grav(particles_context_);
+    }
+    else if (method == Method::Wave) {
+        // масса
+        rrgsim::p2mesh::convert_particles_to_grid(particles_context_, grid_context_);
 
-    // {
-    //     auto mass_center = rrgsim::nbody::calc_mass_center(particles_context_);
-    //     rrgsim::p2mesh::calc_grav_by_center_of_mass(grid_context_, mass_center, 1.);
-    // }
-    rrgsim::p2mesh::calc_acceleration_field(grid_context_);
+        // real3 mass_center = rrgsim::nbody::calc_mass_center(particles_context_);
+        // rrgsim::wave::set_boundary_monopole(
+        //     1.,
+        //     mass_center,
+        //     false,
+        //     grid_info.dx
+        // );
 
-    rrgsim::mesh2p::project_grid_grav_on_particles(grid_context_, particles_context_);
-    rrgsim::mesh2p::project_grid_acceleration_on_particles(grid_context_, particles_context_);
+        rrgsim::wave::set_boundary_periodic(
+            1.,
+            grid_info,
+            false
+        );
+
+        rrgsim::wave::fill_in_initial_grav(
+            grid_context_,
+            rrgsim::nbody::calc_mass_center(particles_context_),
+            1.
+        );
+
+        rrgsim::wave::solve_wave_equation(grid_context_, wave_params);
+
+        // для дальнейших расчётов снижаем количество итераций
+        wave_params.setup_iterations = 2000;
+        RR::CUDA::CuCopyToSymbol(
+            wave_params,
+            rrgsim::common::wave_params_,
+            RR::CUDA::ToDevice
+        );
+    }
+    else if (method == Method::MassCenter) {
+        // масса
+        rrgsim::p2mesh::convert_particles_to_grid(particles_context_, grid_context_);
+
+        auto mass_center = rrgsim::nbody::calc_mass_center(particles_context_);
+        rrgsim::p2mesh::calc_grav_by_center_of_mass(grid_context_, mass_center, 1.);
+    }
+
+    // Расчёт ускорения в начальный момент времени
+    if (method == Method::NBody) {
+        rrgsim::nbody::nbody_acceleration(particles_context_);
+    }
+    else {
+        rrgsim::p2mesh::calc_acceleration_field(grid_context_);
+    }
+
+    // Синхронизация частиц и сетки для сохранения данных
+    if (method == Method::NBody) {
+        rrgsim::p2mesh::convert_particles_to_grid(particles_context_, grid_context_);
+        rrgsim::p2mesh::project_particles_acceleration_on_grid(particles_context_, grid_context_);
+        rrgsim::p2mesh::project_particles_grav_on_grid(particles_context_, grid_context_);
+    }
+    else {
+        rrgsim::mesh2p::project_grid_grav_on_particles(grid_context_, particles_context_);
+        rrgsim::mesh2p::project_grid_acceleration_on_particles(grid_context_, particles_context_);
+    }
+
     grid_context->fill_device_data(grid_context_);
     particles_context->fill_device_data(particles_context_);
     const auto base_conservation_info = rrgsim::nbody::calc_conservation(particles_context);
@@ -85,16 +139,24 @@ void integrate_PIC(
     while (time < sim_params.time_max) {
         rrgsim::nbody::predict_step(particles_context_, sim_params);
 
-        // rrgsim::p2mesh::convert_particles_to_grid(particles_context_, grid_context_);
+        // Рассчитываем ускорение
+        if (method == Method::NBody) {
+            rrgsim::nbody::nbody_acceleration(particles_context_);
+        }
+        else {
+            rrgsim::p2mesh::convert_particles_to_grid(particles_context_, grid_context_);
 
-        // auto mass_center = rrgsim::nbody::calc_mass_center(particles_context_);
-        // rrgsim::p2mesh::calc_grav_by_center_of_mass(grid_context_, mass_center, 1.);
+            if (method == Method::Wave) {
+                rrgsim::wave::solve_wave_equation(grid_context_, wave_params);
+            }
+            else if (method == Method::MassCenter) {
+                auto mass_center = rrgsim::nbody::calc_mass_center(particles_context_);
+                rrgsim::p2mesh::calc_grav_by_center_of_mass(grid_context_, mass_center, 1.);
+            }
 
-        rrgsim::wave::solve_wave_equation(grid_context_, wave_params);
-        rrgsim::p2mesh::calc_acceleration_field(grid_context_);
-        rrgsim::mesh2p::project_grid_acceleration_on_particles(grid_context_, particles_context_);
-
-        // rrgsim::nbody::nbody_acceleration(particles_context_);
+            rrgsim::p2mesh::calc_acceleration_field(grid_context_);
+            rrgsim::mesh2p::project_grid_acceleration_on_particles(grid_context_, particles_context_);
+        }
 
         rrgsim::nbody::correct_step(particles_context_, sim_params);
 
@@ -105,10 +167,16 @@ void integrate_PIC(
         if (time >= next_save) {
             spdlog::info("Time to save: {}", time);
 
-            // rrgsim::nbody::nbody_grav(particles_context_);
-            // rrgsim::p2mesh::convert_particles_to_grid(particles_context_, grid_context_);
+            // подготавливаем ускорение и потенциал для вывода
+            if (method == Method::NBody) {
+                rrgsim::nbody::nbody_grav(particles_context_);
+                rrgsim::p2mesh::project_particles_acceleration_on_grid(particles_context_, grid_context_);
+                rrgsim::p2mesh::project_particles_grav_on_grid(particles_context_, grid_context_);
+            }
+            else {
+                rrgsim::mesh2p::project_grid_grav_on_particles(grid_context_, particles_context_);
+            }
 
-            rrgsim::mesh2p::project_grid_grav_on_particles(grid_context_, particles_context_);
             particles_context->fill_device_data(particles_context_);
             grid_context->fill_device_data(grid_context_);
 

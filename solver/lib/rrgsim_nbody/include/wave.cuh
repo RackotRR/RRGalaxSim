@@ -15,4 +15,18 @@ namespace rrgsim::wave {
         real mass_value
     );
 
+    /// Асимптотические ГУ: масса и центр масс подаются на вход
+    void set_boundary_monopole(
+        real total_mass,
+        const real3& center_of_mass,
+        bool radiative,
+        real dx
+    );
+
+    /// Периодические ГУ: средняя плотность считается по сетке
+    void set_boundary_periodic(
+        real total_mass,
+        const rrgsim::common::GridInfo& g,
+        bool keep_layer = false
+    );
 } // namespace rrgsim::wave

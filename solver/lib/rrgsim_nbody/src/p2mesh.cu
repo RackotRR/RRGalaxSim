@@ -9,6 +9,8 @@
 
 #include "p2mesh.cuh"
 
+#include <numeric>
+
 namespace rrgsim::p2mesh {
 
 using rrgsim::common::grid_info_;
@@ -177,57 +179,90 @@ __global__ void computeCellAccUnsorted(
 	atomicAdd(&cell_acc[i_cell].z, a.z * inv_count);
 }
 
-/// @brief Ядро расчета гравитационного ускорения из потенциала
-/// Использует центральные разности, 3D сетка потоков.
-/// accel:     выходной массив nx^3 векторов ускорения
-/// potential: массив nx^3 значений потенциала (layout: i + j*nx + k*nx*nx)
-__global__ void compute_acceleration_kernel(
-    real3* __restrict__ accel,
-    const real* __restrict__ potential
-)
+/// @brief CIC-депозиция массы частиц на сетку.
+/// Для каждой частицы раскладывает её массу по 8 ближайшим центрам ячеек
+/// с билинейными весами.
+///
+/// @param positions   [N] позиции частиц
+/// @param masses      [N] массы частиц
+/// @param num_particles число частиц
+/// @param density     [nx^3] выходная плотность (масса на ячейку)
+///                    ДОЛЖНА БЫТЬ ОБНУЛЕНА ЗАРАНЕЕ (cudaMemset)
+__global__ void deposit_mass_cic_kernel(
+    const real3* positions,
+    const real* masses,
+    real* density)
 {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    int j = blockIdx.y * blockDim.y + threadIdx.y;
-    int k = blockIdx.z * blockDim.z + threadIdx.z;
+    int p = blockIdx.x * blockDim.x + threadIdx.x;
 
     const int nx = grid_info_.nx;
-
-    // Потоковые ядра без границ: обрабатываем только внутренние ячейки.
-    // Границы можно либо оставить нулевыми, либо заполнить односторонними разностями,
-    // либо вовсе исключить (см. bc_l в GridInfo — на границах нас интересует только sim_l).
-    if (i <= 0 || i >= nx - 1 ||
-        j <= 0 || j >= nx - 1 ||
-        k <= 0 || k >= nx - 1) {
-        int idx = i + j * nx + k * nx * nx;
-        accel[idx] = make_real3(0.f, 0.f, 0.f);
-        return;
-    }
-
     const int nx2 = nx * nx;
-    const int idx  = i + j * nx + k * nx2;
+    const real inv_dx = 1.f / grid_info_.dx;
 
-    // Соседи вдоль каждой оси
-    const real phi_xp = potential[idx + 1];
-    const real phi_xm = potential[idx - 1];
-    const real phi_yp = potential[idx + nx];
-    const real phi_ym = potential[idx - nx];
-    const real phi_zp = potential[idx + nx2];
-    const real phi_zm = potential[idx - nx2];
+    real3 pos = positions[p];
+    real  m   = masses[p];
 
-    // g = -grad(phi) = -(dphi/dx, dphi/dy, dphi/dz)
-    const real inv_2dx = 1.f / (2.f * grid_info_.dx);
+    // Физические координаты -> индексы центров ячеек (cell-centered, сдвиг -0.5)
+    real u = (pos.x - grid_info_.domain_min) * inv_dx - 0.5f;
+    real v = (pos.y - grid_info_.domain_min) * inv_dx - 0.5f;
+    real w = (pos.z - grid_info_.domain_min) * inv_dx - 0.5f;
 
-    real3 g;
-    g.x = -(phi_xp - phi_xm) * inv_2dx;
-    g.y = -(phi_yp - phi_ym) * inv_2dx;
-    g.z = -(phi_zp - phi_zm) * inv_2dx;
+    // Клэмпим к допустимому диапазону центров ячеек [0, nx-1]
+    const real eps = 1e-6f;
+    u = fminf(fmaxf(u, 0.f), (real)(nx - 1) - eps);
+    v = fminf(fmaxf(v, 0.f), (real)(nx - 1) - eps);
+    w = fminf(fmaxf(w, 0.f), (real)(nx - 1) - eps);
 
-    accel[idx] = g;
+    int i0 = (int)floorf(u);
+    int j0 = (int)floorf(v);
+    int k0 = (int)floorf(w);
+
+    int i1 = min(i0 + 1, nx - 1);
+    int j1 = min(j0 + 1, nx - 1);
+    int k1 = min(k0 + 1, nx - 1);
+
+    real fx = u - i0;
+    real fy = v - j0;
+    real fz = w - k0;
+
+    // Веса CIC (билинейные)
+    real wx0 = 1.f - fx, wx1 = fx;
+    real wy0 = 1.f - fy, wy1 = fy;
+    real wz0 = 1.f - fz, wz1 = fz;
+
+    // 8 узлов, веса = произведения
+    real w000 = wx0 * wy0 * wz0;
+    real w100 = wx1 * wy0 * wz0;
+    real w010 = wx0 * wy1 * wz0;
+    real w110 = wx1 * wy1 * wz0;
+    real w001 = wx0 * wy0 * wz1;
+    real w101 = wx1 * wy0 * wz1;
+    real w011 = wx0 * wy1 * wz1;
+    real w111 = wx1 * wy1 * wz1;
+
+    int idx000 = i0 + j0 * nx + k0 * nx2;
+    int idx100 = i1 + j0 * nx + k0 * nx2;
+    int idx010 = i0 + j1 * nx + k0 * nx2;
+    int idx110 = i1 + j1 * nx + k0 * nx2;
+    int idx001 = i0 + j0 * nx + k1 * nx2;
+    int idx101 = i1 + j0 * nx + k1 * nx2;
+    int idx011 = i0 + j1 * nx + k1 * nx2;
+    int idx111 = i1 + j1 * nx + k1 * nx2;
+
+
+    atomicAdd(&density[idx000], m * w000);
+    atomicAdd(&density[idx100], m * w100);
+    atomicAdd(&density[idx010], m * w010);
+    atomicAdd(&density[idx110], m * w110);
+    atomicAdd(&density[idx001], m * w001);
+    atomicAdd(&density[idx101], m * w101);
+    atomicAdd(&density[idx011], m * w011);
+    atomicAdd(&density[idx111], m * w111);
 }
 
 __global__ void acc_field(
-	real3* cell_acc, // сила на единицу массы
-	const real* cell_phi
+	real3* __restrict__ cell_acc, // сила на единицу массы
+	const real* __restrict__ cell_phi
 )
 {
     int ix = threadIdx.x + blockIdx.x * blockDim.x;
@@ -291,8 +326,7 @@ void calc_acceleration_field(
     dim3 threads_per_block{ BLOCK_SIZE_IN_3D, BLOCK_SIZE_IN_3D, BLOCK_SIZE_IN_3D };
     dim3 blocks_per_grid{ blocks_count, blocks_count, blocks_count };
 
-    // RR::CUDA::CuCall(acc_field, blocks_per_grid, threads_per_block) (
-    RR::CUDA::CuCall(compute_acceleration_kernel, blocks_per_grid, threads_per_block) (
+    RR::CUDA::CuCall(acc_field, blocks_per_grid, threads_per_block) (
         grid_->acc_,
         grid_->grav_curr_
     );
@@ -367,17 +401,29 @@ void convert_particles_to_grid(
         grid_->particles_in_block_,
         over.num_cells
     );
-	RR::CUDA::CuCall(computeCellMassesUnsorted, over.particles, over.blocks) (
+
+	// RR::CUDA::CuCall(computeCellMassesUnsorted, over.particles, over.blocks) (
+	// 	particles_->mass_,
+	// 	grid_->particles_cell_info_,
+	// 	grid_->mass_
+	// );
+	RR::CUDA::CuCall(deposit_mass_cic_kernel, over.particles, over.blocks) (
+		particles_->pos_,
 		particles_->mass_,
-		grid_->particles_cell_info_,
 		grid_->mass_
 	);
-	RR::CUDA::CuCall(computeCellPhiUnsorted, over.particles, over.blocks) (
-		particles_->grav_,
-		grid_->particles_cell_info_,
-		grid_->cell_info_,
-		grid_->grav_curr_
-	);
+
+}
+
+void project_particles_acceleration_on_grid(
+    const sParticlesContext_ particles_,
+    sGridContext_ grid_
+)
+{
+    auto over = OverInfo::calc(grid_->info.nx, particles_->info.ntotal);
+
+	grid_->acc_.set_zero();
+
 	RR::CUDA::CuCall(computeCellAccUnsorted, over.particles, over.blocks) (
 		particles_->acc_,
 		grid_->particles_cell_info_,
@@ -386,6 +432,22 @@ void convert_particles_to_grid(
 	);
 }
 
+void project_particles_grav_on_grid(
+    const sParticlesContext_ particles_,
+    sGridContext_ grid_
+)
+{
+    auto over = OverInfo::calc(grid_->info.nx, particles_->info.ntotal);
+
+    grid_->grav_curr_.set_zero();
+
+	RR::CUDA::CuCall(computeCellPhiUnsorted, over.particles, over.blocks) (
+		particles_->grav_,
+		grid_->particles_cell_info_,
+		grid_->cell_info_,
+		grid_->grav_curr_
+	);
+}
 
 /// @brief Ядро для расчета гравитационного потенциала
 /// Использует 3D сетку потоков

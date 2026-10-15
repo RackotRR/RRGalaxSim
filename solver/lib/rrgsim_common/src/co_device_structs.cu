@@ -10,5 +10,6 @@ __constant__ GridInfo grid_info_;
 
 __constant__ WaveParams wave_params_;
 
+__constant__ BoundaryParams bc_params_;
 
 } // namespace rrgsim::common

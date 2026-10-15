@@ -119,6 +119,7 @@ void integrate_PIC(
 
             rrgsim::conservation::print_sample_particle(particles_context);
             rrgsim::conservation::print_acc_projection(grid_context);
+            rrgsim::conservation::print_grav_projection(grid_context);
 
             next_save += sim_params.dt_save;
         }

@@ -13,6 +13,7 @@ void save_angular_data_conservation(
 {
     using rrgsim::io::TagValue;
     auto& io_handler = rrgsim::io::IOHandler::instance();
+    int precision = 20;
 
     {
         double ang_z_rel = info.angular.z / info0.angular.z - 1.;
@@ -21,9 +22,9 @@ void save_angular_data_conservation(
             "delta_ang_z",
             {
                 { "t", info.time },
-                { "ang_z", info.angular.z },
-                { "ang_z_rel_signed", ang_z_rel },
-                { "ang_z_rel", std::abs(ang_z_rel) }
+                { "ang_z", info.angular.z, precision },
+                { "ang_z_rel_signed", ang_z_rel, precision },
+                { "ang_z_rel", std::abs(ang_z_rel), precision }
             }
         );
     }
@@ -38,9 +39,9 @@ void save_angular_data_conservation(
             "delta_ang_norm",
             {
                 { "t", info.time },
-                { "ang_norm", ang_norm },
-                { "ang_norm_rel_signed", norm_rel },
-                { "ang_norm_rel", std::abs(norm_rel) }
+                { "ang_norm", ang_norm, precision },
+                { "ang_norm_rel_signed", norm_rel, precision },
+                { "ang_norm_rel", std::abs(norm_rel), precision }
             }
         );
     }
@@ -54,6 +55,7 @@ void save_momentum_data_conservation(
     using rrgsim::io::TagValue;
     using rrgsim::common::norm;
     auto& io_handler = rrgsim::io::IOHandler::instance();
+    int precision = 20;
 
     double momentum_norm = norm(info.momentum);
     double momentum_norm0 = norm(info0.momentum);
@@ -62,11 +64,11 @@ void save_momentum_data_conservation(
     io_handler.append_table(
         "delta_momentum",
         {
-            { "t", info.time },
-            { "momentum_norm", momentum_norm },
-            { "momentum_diff", momentum_norm - momentum_norm0 },
-            { "momentum_rel_signed", momentum_norm_rel },
-            { "momentum_rel", std::abs(momentum_norm_rel) }
+            { "t", info.time, precision },
+            { "momentum_norm", momentum_norm, precision },
+            { "momentum_diff", momentum_norm - momentum_norm0, precision },
+            { "momentum_rel_signed", momentum_norm_rel, precision },
+            { "momentum_rel", std::abs(momentum_norm_rel), precision }
         }
     );
 }
@@ -78,6 +80,7 @@ void save_energy_data_conservation(
 {
     using rrgsim::io::TagValue;
     auto& io_handler = rrgsim::io::IOHandler::instance();
+    int precision = 15;
 
     double E_rel = info.E() / info0.E() - 1.;
 
@@ -85,11 +88,11 @@ void save_energy_data_conservation(
         "delta_energy",
         {
             { "t", info.time },
-            { "E", info.E() },
-            { "E_rel_signed", E_rel },
-            { "E_rel", std::abs(E_rel) },
-            { "Ek", info.Ek },
-            { "Ep", info.Ep }
+            { "E", info.E(), precision },
+            { "E_rel_signed", E_rel, precision },
+            { "E_rel", std::abs(E_rel), precision },
+            { "Ek", info.Ek, precision },
+            { "Ep", info.Ep, precision }
         }
     );
 }
@@ -138,7 +141,7 @@ void print_conservation(
     spdlog::info(
         "-- momentum: diff {} ; rel {}",
         momentum_diff,
-        norm(info.momentum) / norm(info.momentum) - 1.
+        norm(info.momentum) / norm(info0.momentum) - 1.
     );
     spdlog::trace(
         "\t {} -> {}",
@@ -299,12 +302,18 @@ void print_acc_projection(
     auto& handler = rrgsim::io::IOHandler::instance();
     size_t NX = grid_context->info.nx;
 
+    tl::optional<std::string> subdir = "a_grid";
+
     for (size_t xi = 0; xi < NX; ++xi) {
         rrgsim::io::TagValue x{ "x", grid_context->info.domain_min + grid_context->info.dx * xi };
         rrgsim::io::TagValue ax{ "ax", grid_context->acc[AT(xi, NX / 2, NX / 2)].x };
         rrgsim::io::TagValue ay{ "ay", grid_context->acc[AT(xi, NX / 2, NX / 2)].y };
         rrgsim::io::TagValue az{ "az", grid_context->acc[AT(xi, NX / 2, NX / 2)].z };
-        handler.append_table(fmt::format("a_grid_center_{:.08f}", grid_context->time), { x, ax, ay, az });
+        handler.append_table(
+            fmt::format("a_grid_center_{:.08f}", grid_context->time),
+            { x, ax, ay, az },
+            subdir
+        );
     }
 }
 
@@ -315,22 +324,18 @@ void print_grav_projection(
     auto& handler = rrgsim::io::IOHandler::instance();
     size_t NX = grid_context->info.nx;
 
-    for (size_t xi = 0; xi < NX; ++xi) {
-        rrgsim::io::TagValue x{ "x", grid_context->info.domain_min + grid_context->info.dx * xi };
-        rrgsim::io::TagValue g{ "grav", grid_context->grav[AT(xi, NX / 2, NX / 2)] };
-        handler.append_table(fmt::format("grav_x_center_{:.08f}", grid_context->time), { x, g });
-    }
+    tl::optional<std::string> subdir = "grav_grid";
 
-    for (size_t yi = 0; yi < NX; ++yi) {
-        rrgsim::io::TagValue y{ "y", grid_context->info.domain_min + grid_context->info.dx * yi };
-        rrgsim::io::TagValue g{ "grav", grid_context->grav[AT(NX / 2, yi, NX / 2)] };
-        handler.append_table(fmt::format("grav_y_center_{:.08f}", grid_context->time), { y, g });
-    }
-
-    for (size_t zi = 0; zi < NX; ++zi) {
-        rrgsim::io::TagValue z{ "z", grid_context->info.domain_min + grid_context->info.dx * zi };
-        rrgsim::io::TagValue g{ "grav", grid_context->grav[AT(NX / 2, NX / 2, zi)] };
-        handler.append_table(fmt::format("grav_z_center_{:.08f}", grid_context->time), { z, g });
+    for (size_t i = 0; i < NX; ++i) {
+        rrgsim::io::TagValue r{ "r", grid_context->info.domain_min + grid_context->info.dx * i };
+        rrgsim::io::TagValue gx{ "gx", grid_context->grav[AT(i, NX / 2, NX / 2)] };
+        rrgsim::io::TagValue gy{ "gy", grid_context->grav[AT(NX / 2, i, NX / 2)] };
+        rrgsim::io::TagValue gz{ "gz", grid_context->grav[AT(NX / 2, NX / 2, i)] };
+        handler.append_table(
+            fmt::format("grav_axis_center_{:.10f}", grid_context->time),
+            { r, gx, gy, gz },
+            subdir
+        );
     }
 }
 } // namespace rrgsim::conservation

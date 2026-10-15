@@ -11,6 +11,7 @@ namespace rrgsim::io {
 
 void IOHandler::setup(std::filesystem::path work_dir) {
     instance().work_dir = std::move(work_dir);
+    std::filesystem::remove_all(instance().work_dir / "data");
 }
 
 void IOHandler::fill_in_header(
@@ -40,23 +41,32 @@ void IOHandler::fill_in_row(
     ranges::for_each(
         items | ranges::views::drop_last(1),
         [&stream](const TagValue& item) {
-            stream << item.value << ", ";
+            stream << fmt::format("{:.{}f}, ", item.value, item.precision);
         }
     );
 
     ranges::for_each(
         items | ranges::views::take_last(1),
         [&stream](const TagValue& item) {
-            stream << item.value << std::endl;
+            stream << fmt::format("{:.{}f}", item.value, item.precision) << std::endl;
         }
     );
 }
 void IOHandler::append_table(
     std::string tag,
-    std::initializer_list<TagValue> items
+    std::initializer_list<TagValue> items,
+    const tl::optional<std::string>& mb_subdir
 ) const
 {
-    std::filesystem::path data_dir = work_dir / "data";
+    std::filesystem::path data_dir = mb_subdir.map_or_else(
+        [&](const std::string& subdir) {
+            return work_dir / "data" / subdir;
+        },
+        [&](void) {
+            return work_dir / "data";
+        }
+    );
+
     std::filesystem::path path = data_dir / fmt::format("{}.csv", tag);
     std::ofstream stream;
 

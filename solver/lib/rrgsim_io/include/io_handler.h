@@ -2,12 +2,14 @@
 #include <filesystem>
 #include <unordered_set>
 #include <co_types.h>
+#include <rrgsim_tl.h>
 
 namespace rrgsim::io {
 
     struct TagValue {
         std::string_view tag = "Unknown";
         double value = std::numeric_limits<double>::quiet_NaN();
+        int precision = 8;
     };
 
     class IOHandler {
@@ -22,7 +24,8 @@ namespace rrgsim::io {
         // TODO: мне не нравится, что файл открывается каждый раз
         void append_table(
             std::string tag,
-            std::initializer_list<TagValue> items
+            std::initializer_list<TagValue> items,
+            const tl::optional<std::string>& mb_subdir = tl::nullopt
         ) const;
 
     private:

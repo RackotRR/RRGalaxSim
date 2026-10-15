@@ -86,7 +86,7 @@ __global__ void interpolate_acceleration_to_particles_kernel(
     k1 = max(0, min(k1, nx - 1));
 
     // Трилинейная интерполяция
-    real3 acc = make_float3(0.0f, 0.0f, 0.0f);
+    real3 acc = make_real3(0.0f, 0.0f, 0.0f);
 
     for (int k = 0; k <= 1; k++) {
         int kk = (k == 0) ? k0 : k1;

@@ -118,7 +118,8 @@ void print_conservation(
     spdlog::info("\t keenetic {:.15f}", info.Ek);
     spdlog::info("\t potential {:.15f}", info.Ep);
 }
-void print_conservation(
+
+static void print_conservation_momentum(
     const rrgsim::nbody::ConservationInfo& info0,
     const rrgsim::nbody::ConservationInfo& info
 )
@@ -130,19 +131,23 @@ void print_conservation(
         info.momentum,
         info0.momentum
     );
-    double angular_momentum_diff = distance(
-        info.angular,
-        info0.angular
-    );
+    double momentum_rel = norm(info.momentum) / norm(info0.momentum) - 1.;
+    double momentum_rel_max = 0.15;
 
-    spdlog::info("------------------------------------------");
-    spdlog::info("Conservation time: {}", info.time);
-
-    spdlog::info(
-        "-- momentum: diff {} ; rel {}",
-        momentum_diff,
-        norm(info.momentum) / norm(info0.momentum) - 1.
-    );
+    if (std::abs(momentum_rel) > momentum_rel_max) {
+        spdlog::info(
+            "-- momentum: diff {} ; rel {}",
+            momentum_diff,
+            momentum_rel
+        );
+    }
+    else {
+        spdlog::info(
+            "-- momentum: diff {} ; rel {}",
+            momentum_diff,
+            momentum_rel
+        );
+    }
     spdlog::trace(
         "\t {} -> {}",
         info0.momentum.x,
@@ -158,12 +163,36 @@ void print_conservation(
         info0.momentum.z,
         info.momentum.z
     );
+}
+static void print_conservation_angular(
+    const rrgsim::nbody::ConservationInfo& info0,
+    const rrgsim::nbody::ConservationInfo& info
+)
+{
+    using rrgsim::common::distance;
+    using rrgsim::common::norm;
 
-    spdlog::info(
-        "-- angular momentum: diff {} ; rel {}",
-        angular_momentum_diff,
-        norm(info.angular) / norm(info0.angular) - 1.
+    double angular_momentum_diff = distance(
+        info.angular,
+        info0.angular
     );
+    double angular_momentum_rel = norm(info.angular) / norm(info0.angular) - 1.;
+    double angular_momentum_rel_max = 0.15;
+
+    if (std::abs(angular_momentum_rel) > angular_momentum_rel_max) {
+        spdlog::warn(
+            "-- angular momentum: diff {} ; rel {}",
+            angular_momentum_diff,
+            angular_momentum_rel
+        );
+    }
+    else {
+        spdlog::info(
+            "-- angular momentum: diff {} ; rel {}",
+            angular_momentum_diff,
+            angular_momentum_rel
+        );
+    }
     spdlog::trace(
         "\t {} -> {}",
         info0.angular.x,
@@ -179,6 +208,19 @@ void print_conservation(
         info0.angular.z,
         info.angular.z
     );
+}
+
+static void print_conservation_energy(
+    const rrgsim::nbody::ConservationInfo& info0,
+    const rrgsim::nbody::ConservationInfo& info
+)
+{
+    double energy_total = info.E();
+    double energy_total0 = info0.E();
+
+    double energy_total_diff = energy_total - energy_total0;
+    double energy_total_rel = energy_total / energy_total0 - 1.;
+    double energy_total_rel_max = 0.15;
 
     spdlog::info(
         "-- energy keenetic: diff {}", info.Ek - info0.Ek
@@ -197,18 +239,38 @@ void print_conservation(
         info.Ep
     );
 
-    double energy_total = info.E();
-    double energy_total0 = info0.E();
-    spdlog::info(
-        "-- energy total: diff {} ; rel {}",
-        energy_total - energy_total0,
-        energy_total / energy_total0 - 1.
-    );
+    if (std::abs(energy_total_rel) > energy_total_rel_max) {
+        spdlog::warn(
+            "-- energy total: diff {} ; rel {}",
+            energy_total_diff,
+            energy_total_rel
+        );
+    }
+    else {
+        spdlog::info(
+            "-- energy total: diff {} ; rel {}",
+            energy_total_diff,
+            energy_total_rel
+        );
+    }
     spdlog::trace(
         "\t {} -> {}",
         energy_total0,
         energy_total
     );
+}
+
+void print_conservation(
+    const rrgsim::nbody::ConservationInfo& info0,
+    const rrgsim::nbody::ConservationInfo& info
+)
+{
+    spdlog::info("------------------------------------------");
+    spdlog::info("Conservation time: {}", info.time);
+
+    print_conservation_momentum(info0, info);
+    print_conservation_angular(info0, info);
+    print_conservation_energy(info0, info);
 
     save_angular_data_conservation(info0, info);
     save_momentum_data_conservation(info0, info);

@@ -18,10 +18,12 @@ target_link_libraries(rrgsim_common_properties
         RRCUDA
         rrgsim_tl
 )
-target_link_options(rrgsim_common_properties
-    INTERFACE
-        /NODEFAULTLIB:LIBCMT
-)
+if (MSVC)
+    target_link_options(rrgsim_common_properties
+        INTERFACE
+            $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/NODEFAULTLIB:LIBCMT>
+    )
+endif()
 set_target_properties(rrgsim_common_properties
     PROPERTIES
         CUDA_RESOLVE_DEVICE_SYMBOLS OFF

@@ -115,6 +115,16 @@ int main(int argc, const char** argv) {
         rrgsim::log::setup_logging(work_dir_path);
         rrgsim::io::IOHandler::setup(work_dir_path);
 
+        try {
+            auto devices = RR::CUDA::CuGetDevices();
+            for (const auto& device : devices) {
+                spdlog::info("Device: {}", device.name);
+            }
+        }
+        catch (const std::exception& ex) {
+            spdlog::error("CUDA Error: {}", ex.what());
+        }
+
         auto expected_parsed_params = rrgsim::io::parse_params_json(work_dir_path / "params.json");
         if (false == expected_parsed_params.has_value()) {
             spdlog::error("Error: {}", expected_parsed_params.error());

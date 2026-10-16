@@ -42,7 +42,7 @@ __device__ __forceinline__ real monopole_phi(real3 p) {
 }
 
 /// Отклонение от асимптотики psi = phi - phi_mono в узле (i,j,k)
-__device__ __forceinline__ real psi_at(const real* phi, int i, int j, int k) {
+__device__ __forceinline__ real psi_at(const real* __restrict__ phi, int i, int j, int k) {
     const int NX = grid_info_.nx;
     return phi[AT(i, j, k)] - monopole_phi(
         make_real3(coord(i), coord(j), coord(k))
@@ -52,7 +52,7 @@ __device__ __forceinline__ real psi_at(const real* phi, int i, int j, int k) {
 /// Upwind-производная по одной оси вдоль направления распространения n_comp.
 /// Сосед берётся «против потока», т.е. со стороны, откуда приходит волна.
 __device__ __forceinline__ real upwind_axis(
-    const real* phi,
+    const real* __restrict__ phi,
     real psi0,
     real n_comp,
     int ix,
@@ -77,7 +77,7 @@ __device__ __forceinline__ real upwind_axis(
 
 /// Новое значение phi на граничном узле:
 /// d_t psi + c (r^ . grad psi + psi / r) = 0, явная схема против потока
-__device__ real radiative_boundary(const real* phi, int ix, int iy, int iz)
+__device__ real radiative_boundary(const real* __restrict__ phi, int ix, int iy, int iz)
 {
     const real C  = wave_params_.wave_speed;
     const real DT = wave_params_.dt;
@@ -103,10 +103,10 @@ __device__ real radiative_boundary(const real* phi, int ix, int iy, int iz)
 }
 
 __global__ void wave_diss_iteration(
-    real* phi_new,
-    const real* phi,
-    const real* phi_old,
-    const real* mass
+    real* __restrict__ phi_new,
+    const real* __restrict__ phi,
+    const real* __restrict__ phi_old,
+    const real* __restrict__ mass
 )
 {
     const int  NX         = grid_info_.nx;

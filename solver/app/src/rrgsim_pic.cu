@@ -10,6 +10,8 @@
 #include <mesh2p.cuh>
 #include <wave.cuh>
 
+#include <RR/Time/Timer.h>
+
 #include "rrgsim_conservation.cuh"
 
 namespace rrgsim {
@@ -57,6 +59,9 @@ void integrate_PIC(
     );
 
     Method method = Method::Wave;
+
+    RR::Timer timer_init;
+    timer_init.start();
 
     // Расчёт потенциала в начальный момент времени
     if (method == Method::NBody) {
@@ -133,10 +138,15 @@ void integrate_PIC(
 
     print_max_particles_in_cell(grid_context_);
 
+    timer_init.finish();
+    spdlog::info("Init time: {} seconds", timer_init.total<std::chrono::seconds>());
+
     real time = 0.;
     real next_save = time + sim_params.dt_save;
 
+    RR::Timer timer_iterations;
     while (time < sim_params.time_max) {
+        timer_iterations.start();
         rrgsim::nbody::predict_step(particles_context_, sim_params);
 
         // Рассчитываем ускорение
@@ -190,6 +200,12 @@ void integrate_PIC(
             rrgsim::conservation::print_grav_projection(grid_context);
 
             next_save += sim_params.dt_save;
+            timer_iterations.finish();
+            spdlog::info("Time between saves: {} seconds", timer_iterations.average<std::chrono::seconds>());
+            spdlog::info("Time total: {} seconds",
+                timer_iterations.total<std::chrono::seconds>() +
+                timer_init.total<std::chrono::seconds>()
+            );
         }
     }
 }

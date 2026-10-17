@@ -15,7 +15,7 @@ target_link_libraries(rrgsim_common_properties
         CUDA::cudart
         CCCL::libcudacxx
         spdlog
-        RRCUDA
+        RR::CUDA
         rrgsim_tl
 )
 if (MSVC)

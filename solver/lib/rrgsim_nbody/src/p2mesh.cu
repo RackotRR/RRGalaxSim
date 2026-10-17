@@ -394,7 +394,7 @@ void convert_particles_to_grid(
     sGridContext_ grid_
 )
 {
-    spdlog::info("convert_particles_to_grid");
+    spdlog::debug("convert_particles_to_grid");
 	RR::CUDA::CuDeviceSync();
 
     auto over = OverInfo::calc(grid_->info.nx, particles_->info.ntotal);

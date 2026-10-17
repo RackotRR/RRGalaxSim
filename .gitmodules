@@ -22,3 +22,6 @@
 [submodule "solver/extern/range-v3/range-v3"]
 	path = solver/extern/range-v3/range-v3
 	url = https://github.com/ericniebler/range-v3.git
+[submodule "solver/extern/RR/RR-Time"]
+	path = solver/extern/RR/RR-Time
+	url = https://github.com/RackotRR/RR-Time.git

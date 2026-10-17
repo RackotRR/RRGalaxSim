@@ -20,6 +20,8 @@ target_link_libraries(${PROJECT_NAME}
         rrgsim_common
         rrgsim_io
         rrgsim_nbody
+    PRIVATE
+        RR::Time
 )
 set_target_properties(${PROJECT_NAME}
     PROPERTIES

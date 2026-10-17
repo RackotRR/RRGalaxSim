@@ -175,7 +175,7 @@ void integrate_PIC(
         grid_context_->time = time;
 
         if (time >= next_save) {
-            spdlog::info("Time to save: {}", time);
+            spdlog::info("Simulation time: {:.5f} / {:.5f}", time, sim_params.time_max);
 
             // подготавливаем ускорение и потенциал для вывода
             if (method == Method::NBody) {

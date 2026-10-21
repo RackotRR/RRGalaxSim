@@ -16,6 +16,7 @@ namespace rrgsim::common {
     // контекст расчёта на GPU
     struct ParticlesContext_ {
         real time = 0.; // current time
+        size_t iter = 0; // current iteration
 
         CuDarray<real3> pos_; // particles position (GPU)
         CuDarray<real3> vel_; // particles velocity (GPU)
@@ -32,6 +33,8 @@ namespace rrgsim::common {
     // контекст для пост-процессинга на CPU (данные, которые копируются с шагом dt_save)
     struct ParticlesContext {
         real time = 0.;
+        size_t iter = 0;
+
         std::vector<real3> pos;
         std::vector<real3> vel;
         std::vector<real3> acc;

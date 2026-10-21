@@ -69,7 +69,9 @@ __device__ __forceinline__ real upwind_axis(
     if (in < 0 || in >= NX) in = 2 * i0 - in;   // нет соседа — берём другую сторону
 
     int jx = ix, jy = iy, jz = iz;
-    if (axis == 0) jx = in; else if (axis == 1) jy = in; else jz = in;
+    if (axis == 0) jx = in;
+    else if (axis == 1) jy = in;
+    else jz = in;
 
     const real d = (psi0 - psi_at(phi, jx, jy, jz)) / ((i0 - in) * DX);
     return n_comp * d;

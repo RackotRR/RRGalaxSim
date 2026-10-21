@@ -14,6 +14,7 @@ void ParticlesContext::fill_device_data(
     context_->acc_.to_vector(this->acc);
     context_->grav_.to_vector(this->grav);
     this->time = context_->time;
+    this->iter = context_->iter;
 }
 
 

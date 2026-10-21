@@ -1,11 +1,11 @@
 #pragma once
-#include "io_particles.h"
+#include "io_common.h"
+#include "io_ini_galaxy_data.h"
 
 #include "co_sim_params.h"
 #include "co_info_structs.h"
 
 #include <nlohmann/json.hpp>
-#include <rrgsim_tl.h>
 
 namespace rrgsim::common {
     void to_json(nlohmann::json& j, const SimParams& sim_params);
@@ -34,5 +34,5 @@ namespace rrgsim::io {
     void validate_dependent_fields(ParsedParams& params);
 
     tl::expected<ParsedParams, std::string>
-    parse_params_json(const std::filesystem::path& path);
+    parse_params_json(const fs::path& path);
 } // namespace rrgsim::io

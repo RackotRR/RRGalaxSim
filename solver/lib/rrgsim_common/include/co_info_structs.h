@@ -4,8 +4,6 @@
 
 namespace rrgsim::common {
 
-constexpr real NAN_VALUE = std::numeric_limits<real>::quiet_NaN();
-
 #define PI 3.14159265358979
 constexpr int BLOCK_SIZE = 256;
 constexpr int BLOCK_SIZE_IN_3D = 8;

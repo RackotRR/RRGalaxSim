@@ -14,6 +14,7 @@ void GridContext::fill_device_data(
     context_->acc_.to_vector(this->acc);
 
     this->time = context_->time;
+    this->iter = context_->iter;
 }
 
 sGridContext_

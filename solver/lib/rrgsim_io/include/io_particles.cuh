@@ -1,33 +1,16 @@
 #pragma once
 #include <vector>
-#include <limits>
-#include <filesystem>
-#include <rrgsim_tl.h>
 #include <cuda_runtime.h>
+
 #include <co_particles.h>
-#include <co_types.h>
+#include <co_particles_context.cuh>
+
+#include "io_common.h"
+#include "io_ini_galaxy_data.h"
 
 namespace rrgsim::io {
 
-    namespace fs = std::filesystem;
     using rrgsim::common::ParticlesData;
-
-    constexpr real NAN_VALUE = std::numeric_limits<real>::quiet_NaN();
-
-    struct IniGalaxyComponentData {
-        real mass = NAN_VALUE;
-        real soft = NAN_VALUE;
-        fs::path ini_file;
-    };
-
-    struct IniGalaxyData {
-        real mass_star = NAN_VALUE;
-        real mass_dark = NAN_VALUE;
-        real soft_star = NAN_VALUE;
-        real soft_dark = NAN_VALUE;
-        tl::optional<fs::path> mb_ini_file_star;
-        tl::optional<fs::path> mb_ini_file_dark;
-    };
 
     /// @brief
     /// @param component_data
@@ -47,6 +30,11 @@ namespace rrgsim::io {
     tl::expected<ParticlesData, std::string>
     read_simple_particles_data(
         const fs::path& ini_json_path
+    );
+
+    tl::expected<void, std::string>
+    write_particles_dump(
+        const rrgsim::common::sParticlesContext context
     );
 
 } // namespace rrgsim_io

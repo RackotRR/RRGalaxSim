@@ -1,6 +1,6 @@
 #pragma once
 #include "co_info_structs.h"
-#include "co_boundary.h"
+#include "co_boundary.cuh"
 
 namespace rrgsim::common {
 

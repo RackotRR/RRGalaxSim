@@ -1,8 +1,7 @@
 #pragma once
-#include <filesystem>
+#include "io_common.h"
 #include <unordered_set>
-#include <co_types.h>
-#include <rrgsim_tl.h>
+#include <fstream>
 
 namespace rrgsim::io {
 
@@ -19,7 +18,7 @@ namespace rrgsim::io {
             return handler;
         }
 
-        static void setup(std::filesystem::path work_dir);
+        static void setup(fs::path work_dir);
 
         // TODO: мне не нравится, что файл открывается каждый раз
         void append_table(
@@ -42,7 +41,7 @@ namespace rrgsim::io {
         ) const;
 
 
-        std::filesystem::path work_dir;
+        fs::path work_dir;
 
         mutable std::unordered_set<std::string> filled;
     };

@@ -4,7 +4,7 @@
 #include <co_grid_context.cuh>
 #include <co_device_utils.cuh>
 
-#include "io_particles.h"
+#include "io_particles.cuh"
 #include "io_json.h"
 #include "io_handler.h"
 

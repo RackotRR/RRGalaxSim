@@ -1,8 +1,7 @@
 #pragma once
-#include "cuda_runtime.h"
 #include <vector>
-#include "co_device_structs.cuh"
 #include "co_types.h"
+#include "co_info_structs.h"
 
 namespace rrgsim::common {
 

@@ -141,6 +141,7 @@ void integrate_PIC(
     timer_init.finish();
     spdlog::info("Init time: {} seconds", timer_init.total<std::chrono::seconds>());
 
+    size_t iteration = 0;
     real time = 0.;
     real next_save = time + sim_params.dt_save;
 
@@ -170,9 +171,12 @@ void integrate_PIC(
 
         rrgsim::nbody::correct_step(particles_context_, sim_params);
 
+        ++iteration;
         time += sim_params.dt_dynamics;
         particles_context_->time = time;
+        particles_context_->iter = iteration;
         grid_context_->time = time;
+        grid_context_->iter = iteration;
 
         if (time >= next_save) {
             spdlog::info("Simulation time: {:.5f} / {:.5f}", time, sim_params.time_max);

@@ -9,9 +9,9 @@
 
 namespace rrgsim::io {
 
-void IOHandler::setup(std::filesystem::path work_dir) {
+void IOHandler::setup(fs::path work_dir) {
     instance().work_dir = std::move(work_dir);
-    std::filesystem::remove_all(instance().work_dir / "data");
+    fs::remove_all(instance().work_dir / "data");
 }
 
 void IOHandler::fill_in_header(
@@ -58,7 +58,7 @@ void IOHandler::append_table(
     const tl::optional<std::string>& mb_subdir
 ) const
 {
-    std::filesystem::path data_dir = mb_subdir.map_or_else(
+    fs::path data_dir = mb_subdir.map_or_else(
         [&](const std::string& subdir) {
             return work_dir / "data" / subdir;
         },
@@ -67,14 +67,14 @@ void IOHandler::append_table(
         }
     );
 
-    std::filesystem::path path = data_dir / fmt::format("{}.csv", tag);
+    fs::path path = data_dir / fmt::format("{}.csv", tag);
     std::ofstream stream;
 
     if (filled.contains(tag)) {
         stream.open(path, std::ios::app);
     }
     else {
-        std::filesystem::create_directories(data_dir);
+        fs::create_directories(data_dir);
         stream.open(path);
 
         fill_in_header(stream, items);

@@ -136,9 +136,9 @@ namespace rrgsim::io {
     }
 
     tl::expected<ParsedParams, std::string>
-    parse_params_json(const std::filesystem::path& path) {
+    parse_params_json(const fs::path& path) {
         try {
-            if (false == std::filesystem::exists(path)) {
+            if (false == fs::exists(path)) {
                 return tl::make_unexpected(
                     fmt::format("Expected params json: '{}'", path.string())
                 );

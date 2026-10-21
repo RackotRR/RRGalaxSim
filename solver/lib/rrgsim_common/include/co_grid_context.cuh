@@ -29,6 +29,7 @@ namespace rrgsim::common {
     // контекст расчёта на GPU
     struct GridContext_ {
         real time = 0.; // current time
+        size_t iter = 0; // current iteration
 
         CuDarray<real> mass_; // cell masses (GPU)
         CuDarray<real> grav_prev_; // cell gravitational potential (GPU)
@@ -48,6 +49,7 @@ namespace rrgsim::common {
     // контекст для пост-процессинга на CPU (данные, которые копируются с шагом dt_save)
     struct GridContext {
         real time = 0.;
+        size_t iter = 0;
         std::vector<real> mass;
         std::vector<real> grav;
         std::vector<real3> acc;

@@ -1,4 +1,5 @@
 #pragma once
+#include <limits>
 
 // #define USE_FP32
 
@@ -15,3 +16,5 @@
 #define make_real2 make_double2
 #define make_real3 make_double3
 #endif
+
+constexpr real NAN_VALUE = std::numeric_limits<real>::quiet_NaN();

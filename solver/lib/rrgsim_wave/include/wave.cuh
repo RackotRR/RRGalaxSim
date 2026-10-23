@@ -6,7 +6,8 @@ namespace rrgsim::wave {
 
     void solve_wave_equation(
         rrgsim::common::sGridContext_ grid_,
-        rrgsim::common::WaveParams wave_params
+        rrgsim::common::WaveParams wave_params,
+        int max_iterations
     );
 
     void fill_in_initial_grav(

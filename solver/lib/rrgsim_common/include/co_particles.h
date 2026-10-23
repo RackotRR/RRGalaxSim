@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <cuda_runtime.h>
 #include "co_types.h"
 #include "co_info_structs.h"
 

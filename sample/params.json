@@ -9,8 +9,9 @@
     },
     "sim_params": {
         "time_max": 1.0,
-        "dt_save": 0.1,
+        "dt_save": 0.01,
         "dt_dynamics": 0.002,
+        "saves_without_dump": 10,
         "acceleration_model": "Wave"
     },
     "grid_params": {
@@ -22,6 +23,11 @@
         "diss_base": 0.1,
         "diss_extra": 0.01,
         "wave_speed": 4574.337022617616,
-        "setup_iterations": 20000
+        "setup_iterations": 30000,
+        "iterations": 3000,
+        "tolerance": 1E-6,
+        "print_step": 500,
+        "steady_check_step": 30,
+        "steady_hold_steps": 3
     }
 }

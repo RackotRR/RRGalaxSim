@@ -58,6 +58,6 @@ real cube(real x) {
 	return x * x * x;
 }
 
-#define AT(x, y, z) ((x) + (y) * (NX) + (z) * (NX) * (NX))
+#define AT(x, y, z) (size_t(x) + size_t(y) * (NX) + size_t(z) * (NX) * (NX))
 
 } // namespace rrgsim::common

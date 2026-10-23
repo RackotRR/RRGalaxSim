@@ -27,6 +27,10 @@ namespace rrgsim::io {
             const tl::optional<std::string>& mb_subdir = tl::nullopt
         ) const;
 
+        static fs::path get_data_dir();
+
+        static fs::path get_dump_dir();
+
     private:
         IOHandler() = default;
 

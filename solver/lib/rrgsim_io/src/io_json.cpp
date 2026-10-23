@@ -14,6 +14,10 @@ namespace rrgsim::common {
         j.at("time_max").get_to(sim_params.time_max);
         j.at("dt_save").get_to(sim_params.dt_save);
         j.at("dt_dynamics").get_to(sim_params.dt_dynamics);
+
+        if (auto jj = j.find("saves_without_dump"); jj != j.end()) {
+            j.at("saves_without_dump").get_to(sim_params.saves_without_dump);
+        }
     }
 
     void to_json(nlohmann::json& j, const GridInfo& grid_info) {
@@ -40,12 +44,58 @@ namespace rrgsim::common {
         j.at("diss_extra") = wave_params.diss_extra;
         j.at("wave_speed") = wave_params.wave_speed;
         j.at("setup_iterations") = wave_params.setup_iterations;
+        j.at("iterations") = wave_params.iterations;
+        j.at("tolerance") = wave_params.tolerance;
+        j.at("print_step") = wave_params.print_step;
+        j.at("steady_check_step") = wave_params.steady_check_step;
+        j.at("steady_hold_steps") = wave_params.steady_hold_steps;
     }
     void from_json(const nlohmann::json& j, WaveParams& wave_params) {
         j.at("diss_base").get_to(wave_params.diss_base);
         j.at("diss_extra").get_to(wave_params.diss_extra);
         j.at("wave_speed").get_to(wave_params.wave_speed);
-        j.at("setup_iterations").get_to(wave_params.setup_iterations);
+
+        if (auto jj = j.find("setup_iterations"); jj != j.end()) {
+            jj->get_to(wave_params.setup_iterations);
+        }
+        else {
+            wave_params.setup_iterations = 30'000;
+        }
+
+        if (auto jj = j.find("iterations"); jj != j.end()) {
+            jj->get_to(wave_params.iterations);
+        }
+        else {
+            wave_params.iterations = 3'000;
+        }
+
+        if (auto jj = j.find("tolerance"); jj != j.end()) {
+            jj->get_to(wave_params.tolerance);
+        }
+        else {
+            wave_params.tolerance = 1.E-6;
+        }
+
+        if (auto jj = j.find("print_step"); jj != j.end()) {
+            jj->get_to(wave_params.print_step);
+        }
+        else {
+            wave_params.print_step = 500;
+        }
+
+        if (auto jj = j.find("steady_check_step"); jj != j.end()) {
+            jj->get_to(wave_params.steady_check_step);
+        }
+        else {
+            wave_params.steady_check_step = 30;
+        }
+
+        if (auto jj = j.find("steady_hold_steps"); jj != j.end()) {
+            jj->get_to(wave_params.steady_hold_steps);
+        }
+        else {
+            wave_params.steady_hold_steps = 3;
+        }
     }
 } // namespace rrgsim::common
 

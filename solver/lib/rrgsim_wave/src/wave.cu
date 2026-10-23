@@ -1,10 +1,9 @@
 #include "wave.cuh"
-#include <cuda_runtime.h>
+#include "wave_steady_checker.cuh"
+
 #include <spdlog/spdlog.h>
 #include <co_device_utils.cuh>
 #include <co_device_structs.cuh>
-
-#include <nbody.cuh>
 
 namespace rrgsim::wave {
 	using rrgsim::common::BLOCK_SIZE;
@@ -230,15 +229,30 @@ void set_boundary_periodic(
 
 void solve_wave_equation(
     rrgsim::common::sGridContext_ grid_,
-    rrgsim::common::WaveParams wave_params
+    rrgsim::common::WaveParams wave_params,
+    int max_iterations
 )
 {
     spdlog::debug("solve_wave_equation");
     RR::CUDA::CuDeviceSync();
 
-	for (int iter = 0; iter < wave_params.setup_iterations; ++iter) {
-		if (iter && iter % 500 == 0) {
-            spdlog::debug("wave_diss_iteration step: {} / {}", iter, wave_params.setup_iterations);
+    SteadyStateChecker steady_state_checker{
+        wave_params.tolerance,
+        wave_params.steady_hold_steps
+    };
+
+    auto print_iteration = [&](int iter) {
+        double rel_diff = steady_state_checker.calc_max_diff(
+            grid_->grav_curr_,
+            grid_->grav_prev_
+        );
+        spdlog::debug("wave_diss_iteration step: {} / {} (rel diff: {})", iter, max_iterations, rel_diff);
+    };
+
+    bool converged = false;
+	for (int iter = 0; iter < max_iterations; ++iter) {
+		if (iter && iter % wave_params.print_step == 0) {
+            print_iteration(iter);
 		}
 
         using rrgsim::common::BLOCK_SIZE_IN_3D;
@@ -256,9 +270,24 @@ void solve_wave_equation(
 		);
 		swap(grid_->grav_prev_, grid_->grav_curr_);
 		swap(grid_->grav_curr_, grid_->grav_next_);
+
+        // остановка по критерию установления
+        if (iter && iter % wave_params.steady_check_step == 0) {
+            converged = steady_state_checker.check(grid_->grav_curr_, grid_->grav_prev_);
+            if (converged) {
+                spdlog::debug("solve_wave_equation: steady_check stopped at {} step", iter);
+                break;
+            }
+        }
+
 	}
 
-    spdlog::debug("solve_wave_equation succeed");
+    // если не сошлось, мы здесь по превышению количества итераций
+    if (false == converged) {
+        print_iteration(max_iterations);
+    }
+
+    spdlog::debug("solve_wave_equation finished");
 }
 
 
@@ -275,6 +304,7 @@ __global__ void fill_in_initial_grav_(
     int ix = threadIdx.x + blockIdx.x * blockDim.x;
     int iy = threadIdx.y + blockIdx.y * blockDim.y;
     int iz = threadIdx.z + blockIdx.z * blockDim.z;
+    if (ix >= NX || iy >= NX || iz >= NX) return;
 
     real3 pos = make_real3(
         grid_info_.domain_min + ix * DX,
@@ -304,6 +334,7 @@ void fill_in_initial_grav(
     dim3 threads_per_block{ threads_count, threads_count, threads_count };
     dim3 blocks_per_grid{ blocks_count, blocks_count, blocks_count };
 
+    spdlog::trace("fill_in_initial_grav_([{}], [{}])", blocks_per_grid.x, threads_per_block.x);
     RR::CUDA::CuCall(fill_in_initial_grav_, blocks_per_grid, threads_per_block) (
         grid_->grav_curr_,
         mass_center,

@@ -14,6 +14,22 @@ void IOHandler::setup(fs::path work_dir) {
     fs::remove_all(instance().work_dir / "data");
 }
 
+fs::path IOHandler::get_data_dir() {
+    auto data_dir = instance().work_dir / "data";
+    if (false == fs::exists(data_dir)) {
+        fs::create_directories(data_dir);
+    }
+    return data_dir;
+}
+
+fs::path IOHandler::get_dump_dir() {
+    auto dump_dir = instance().work_dir / "dump";
+    if (false == fs::exists(dump_dir)) {
+        fs::create_directories(dump_dir);
+    }
+    return dump_dir;
+}
+
 void IOHandler::fill_in_header(
     std::ofstream& stream,
     std::initializer_list<TagValue> items
@@ -58,23 +74,22 @@ void IOHandler::append_table(
     const tl::optional<std::string>& mb_subdir
 ) const
 {
-    fs::path data_dir = mb_subdir.map_or_else(
+    fs::path target_dir = mb_subdir.map_or_else(
         [&](const std::string& subdir) {
-            return work_dir / "data" / subdir;
+            return get_data_dir() / subdir;
         },
         [&](void) {
-            return work_dir / "data";
+            return get_data_dir();
         }
     );
 
-    fs::path path = data_dir / fmt::format("{}.csv", tag);
+    fs::path path = target_dir / fmt::format("{}.csv", tag);
     std::ofstream stream;
 
     if (filled.contains(tag)) {
         stream.open(path, std::ios::app);
     }
     else {
-        fs::create_directories(data_dir);
         stream.open(path);
 
         fill_in_header(stream, items);

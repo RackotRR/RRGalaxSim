@@ -8,6 +8,8 @@ namespace rrgsim::common {
         real dt_save = NAN_VALUE;
         real dt_dynamics = NAN_VALUE;
 
+        size_t saves_without_dump = UINT64_MAX;
+
         bool use_wave_model = false;
     };
 

@@ -1,12 +1,11 @@
 #pragma once
 #include <vector>
-#include <cuda_runtime.h>
 
 #include <co_particles.h>
-#include <co_particles_context.cuh>
 
 #include "io_common.h"
 #include "io_ini_galaxy_data.h"
+#include <rrgsim_tl.h>
 
 namespace rrgsim::io {
 
@@ -30,11 +29,6 @@ namespace rrgsim::io {
     tl::expected<ParticlesData, std::string>
     read_simple_particles_data(
         const fs::path& ini_json_path
-    );
-
-    tl::expected<void, std::string>
-    write_particles_dump(
-        const rrgsim::common::sParticlesContext context
     );
 
 } // namespace rrgsim_io

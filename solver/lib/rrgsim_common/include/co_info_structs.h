@@ -40,11 +40,32 @@ struct WaveParams {
 
     real wave_speed;
 
-    int setup_iterations;
-
     /// @brief Шаг по времени для интегрирования
     /// @note Выводится солвером из условия CFL
     real dt;
+
+    ///
+    /// Параметры установления
+    ///
+
+    /// @brief Количество итераций для первоначального установления потенциала
+    int setup_iterations;
+
+    /// @brief Количество итераций для установления потенциала во время интегрирования
+    int iterations;
+
+    /// @brief Точность для установления
+    real tolerance;
+
+    /// @brief Шаг вывода информации об итерации
+    int print_step;
+
+    /// @brief Шаг проверки на установление
+    int steady_check_step;
+
+    /// @brief Количество шагов с требуемой точностью, чтобы считать решение найденным
+    int steady_hold_steps;
+
 };
 
 class OverInfo {

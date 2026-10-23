@@ -3,7 +3,8 @@ project(rrgsim_io LANGUAGES CXX CUDA)
 
 # библиотека с общим кодом
 add_library(${PROJECT_NAME} STATIC
-    src/io_particles.cu
+    src/io_particles_bin.cu
+    src/io_particles_csv.cpp
     src/io_json.cpp
     src/io_handler.cpp
 )
@@ -24,10 +25,4 @@ target_link_libraries(${PROJECT_NAME}
         csv_wrapped
         fmt::fmt
         range-v3
-)
-
-# Увеличиваем глубину рекурсии для работы csv-parser
-target_compile_options(${PROJECT_NAME}
-    PRIVATE
-        $<$<COMPILE_LANGUAGE:CUDA>:--ftemplate-depth=256>
 )

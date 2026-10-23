@@ -34,23 +34,23 @@ namespace {
         real3 p = particles_pos[i_part];
 
         // Вычисление индексов ячейки
-        int nx = grid_info_.nx;
+        int NX = grid_info_.nx;
         int ix = rrgsim::common::clamp(
             (int)((p.x - grid_info_.domain_min) / grid_info_.dx),
             (int)0,
-            (int)(nx - 1));
+            (int)(NX - 1));
         int iy = rrgsim::common::clamp(
             (int)((p.y - grid_info_.domain_min) / grid_info_.dx),
             (int)0,
-            (int)(nx - 1));
+            (int)(NX - 1));
         int iz = rrgsim::common::clamp(
             (int)((p.z - grid_info_.domain_min) / grid_info_.dx),
             (int)0,
-            (int)(nx - 1));
+            (int)(NX - 1));
 
         // Линейный индекс ячейки (Morton-подобный порядок для пространственной локальности)
         // Используем чередование битов для лучшей когерентности
-        int i_cell = iz * nx * nx + iy * nx + ix;
+        size_t i_cell = AT(ix, iy, iz);
 
         // Сохраняем номер ячейки для частицы
         particles_cell_info[i_part].cell_id = i_cell;
@@ -245,8 +245,9 @@ namespace {
         int iz = threadIdx.z + blockIdx.z * blockDim.z;
         const int NX = grid_info_.nx;
         const real DX = grid_info_.dx;
+        if (ix >= NX || iy >= NX || iz >= NX) return;
 
-        int xyz = AT(ix, iy, iz);
+        size_t xyz = AT(ix, iy, iz);
 
         real3 dphi;
 
@@ -301,13 +302,10 @@ namespace {
         int j = blockIdx.y * blockDim.y + threadIdx.y;
         int k = blockIdx.z * blockDim.z + threadIdx.z;
 
-        int nx = grid_info_.nx;
+        int NX = grid_info_.nx;
 
         // Проверка границ
-        if (i >= nx || j >= nx || k >= nx) return;
-
-        // Линейный индекс
-        int idx = i + j * nx + k * nx * nx;
+        if (i >= NX || j >= NX || k >= NX) return;
 
         // Координаты ячейки
         real x = grid_info_.domain_min + (i + 0.5) * grid_info_.dx;
@@ -331,7 +329,7 @@ namespace {
 
         // Гравитационный потенциал: phi = -G * M / r
         const real G = 1.;
-        potential[idx] = -G * total_mass / r;
+        potential[AT(i, j, k)] = -G * total_mass / r;
     }
 } // namespace
 
@@ -369,16 +367,24 @@ void init_p2mesh_context(
     };
 
     if (nullptr == grid_->particles_cell_info_) {
+        spdlog::trace("init particles_cell_info_[{}]", over().num_particles);
         grid_->particles_cell_info_ = CuDarray<ParticleCellInfo>(over().num_particles);
+        spdlog::trace("allocated: {}", CuDarray<void>::get_total_allocated_mb());
     }
     if (nullptr == grid_->cell_info_) {
+        spdlog::trace("init cell_info_[{}]", over().num_cells);
         grid_->cell_info_ = CuDarray<CellInfo>(over().num_cells);
+        spdlog::trace("allocated: {}", CuDarray<void>::get_total_allocated_mb());
     }
     if (nullptr == grid_->cell_particles_count_) {
+        spdlog::trace("init cell_particles_count_[{}]", over().num_cells);
         grid_->cell_particles_count_ = CuDarray<int>(over().num_cells);
+        spdlog::trace("allocated: {}", CuDarray<void>::get_total_allocated_mb());
     }
     if (nullptr == grid_->particles_in_block_) {
+        spdlog::trace("init particles_in_block_[{}]", over().num_cell_blocks);
         grid_->particles_in_block_ = CuDarray<int>(over().num_cell_blocks);
+        spdlog::trace("allocated: {}", CuDarray<void>::get_total_allocated_mb());
     }
 
     if (mb_over) {
@@ -407,17 +413,22 @@ void convert_particles_to_grid(
 	grid_->particles_in_block_.set_zero();
 	grid_->mass_.set_zero();
 
+    spdlog::trace("assign_particles_to_cells_({}, {})", over.particles, over.blocks);
     RR::CUDA::CuCall(assign_particles_to_cells_, over.particles, over.blocks) (
         particles_->pos_,
         grid_->particles_cell_info_,
         grid_->cell_info_,
         grid_->cell_particles_count_
     );
+
+    spdlog::trace("compute_prefix_sums_({}, {})", over.cells, over.blocks);
     RR::CUDA::CuCall(compute_prefix_sums_, over.cells, over.blocks) (
         grid_->cell_info_,
         grid_->particles_in_block_,
         over.num_cells
     );
+
+    spdlog::trace("adjust_global_prefix_sums_({}, {})", over.cells, over.blocks);
     RR::CUDA::CuCall(adjust_global_prefix_sums_, over.cells, over.blocks) (
         grid_->cell_info_,
         grid_->particles_in_block_,
@@ -429,6 +440,8 @@ void convert_particles_to_grid(
 	// 	grid_->particles_cell_info_,
 	// 	grid_->mass_
 	// );
+
+    spdlog::trace("deposit_cell_mass_CIC_({}, {})", over.particles, over.blocks);
 	RR::CUDA::CuCall(deposit_cell_mass_CIC_, over.particles, over.blocks) (
 		particles_->pos_,
 		particles_->mass_,

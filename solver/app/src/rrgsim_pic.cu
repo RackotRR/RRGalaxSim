@@ -14,6 +14,9 @@
 
 #include "rrgsim_conservation.cuh"
 
+#include <io_particles_bin.cuh>
+#include <io_handler.h>
+
 namespace rrgsim {
 
 void print_max_particles_in_cell(
@@ -91,15 +94,7 @@ void integrate_PIC(
             1.
         );
 
-        rrgsim::wave::solve_wave_equation(grid_context_, wave_params);
-
-        // для дальнейших расчётов снижаем количество итераций
-        wave_params.setup_iterations = 2000;
-        RR::CUDA::CuCopyToSymbol(
-            wave_params,
-            rrgsim::common::wave_params_,
-            RR::CUDA::ToDevice
-        );
+        rrgsim::wave::solve_wave_equation(grid_context_, wave_params, wave_params.setup_iterations);
     }
     else if (method == Method::MassCenter) {
         // масса
@@ -145,6 +140,8 @@ void integrate_PIC(
     real time = 0.;
     real next_save = time + sim_params.dt_save;
 
+    size_t saves_without_dump = 0;
+
     RR::Timer timer_iterations;
     while (time < sim_params.time_max) {
         timer_iterations.start();
@@ -158,7 +155,7 @@ void integrate_PIC(
             rrgsim::p2mesh::convert_particles_to_grid(particles_context_, grid_context_);
 
             if (method == Method::Wave) {
-                rrgsim::wave::solve_wave_equation(grid_context_, wave_params);
+                rrgsim::wave::solve_wave_equation(grid_context_, wave_params, wave_params.iterations);
             }
             else if (method == Method::MassCenter) {
                 auto mass_center = rrgsim::nbody::calc_mass_center(particles_context_);
@@ -179,7 +176,7 @@ void integrate_PIC(
         grid_context_->iter = iteration;
 
         if (time >= next_save) {
-            spdlog::info("Simulation time: {:.5f} / {:.5f}", time, sim_params.time_max);
+            spdlog::info("Simulation time: {:.5f} / {:.5f} (iter: {})", time, sim_params.time_max, iteration);
 
             // подготавливаем ускорение и потенциал для вывода
             if (method == Method::NBody) {
@@ -210,6 +207,19 @@ void integrate_PIC(
                 timer_iterations.total<std::chrono::seconds>() +
                 timer_init.total<std::chrono::seconds>()
             );
+
+            ++saves_without_dump;
+            if (saves_without_dump < sim_params.saves_without_dump) {
+                std::ignore = io::write_particles_dump(
+                        particles_context,
+                        io::IOHandler::get_dump_dir()
+                    )
+                    .transform_error(
+                        [](auto&& error) {
+                            spdlog::error(error);
+                        }
+                    );
+            }
         }
     }
 }

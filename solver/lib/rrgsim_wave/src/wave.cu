@@ -273,7 +273,13 @@ void solve_wave_equation(
 
         // остановка по критерию установления
         if (iter && iter % wave_params.steady_check_step == 0) {
-            converged = steady_state_checker.check(grid_->grav_curr_, grid_->grav_prev_);
+            double rel_diff = steady_state_checker.calc_max_diff(
+                grid_->grav_curr_,
+                grid_->grav_prev_
+            );
+            spdlog::trace("wave_diss_iteration check convergence: {} (rel diff: {})", iter, rel_diff);
+
+            converged = steady_state_checker.check(rel_diff);
             if (converged) {
                 spdlog::debug("solve_wave_equation: steady_check stopped at {} step", iter);
                 break;

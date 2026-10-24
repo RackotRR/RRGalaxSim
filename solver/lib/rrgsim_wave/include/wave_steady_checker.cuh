@@ -42,6 +42,8 @@ struct SteadyStateChecker {
         const RR::CUDA::CuDarray<real>& u_new_,
         const RR::CUDA::CuDarray<real>& u_old_
     );
+
+    bool check(double err);
 };
 
 

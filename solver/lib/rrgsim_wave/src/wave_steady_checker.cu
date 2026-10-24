@@ -129,12 +129,9 @@ double SteadyStateChecker::calc_max_diff(
 
 // true -> установление достигнуто
 bool SteadyStateChecker::check(
-    const RR::CUDA::CuDarray<real>& u_new_,
-    const RR::CUDA::CuDarray<real>& u_old_
+    double err
 )
 {
-    double err = calc_max_diff(u_new_, u_old_);
-
     if (err < tol) {
         ++hold_count;
     }
@@ -144,5 +141,15 @@ bool SteadyStateChecker::check(
 
     return hold_count >= hold_need;
 }
+
+bool SteadyStateChecker::check(
+    const RR::CUDA::CuDarray<real>& u_new_,
+    const RR::CUDA::CuDarray<real>& u_old_
+)
+{
+    double err = calc_max_diff(u_new_, u_old_);
+    return check(err);
+}
+
 
 } // namespace rrgsim::wave

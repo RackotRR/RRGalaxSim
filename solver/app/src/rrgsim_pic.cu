@@ -88,11 +88,11 @@ void integrate_PIC(
             false
         );
 
-        rrgsim::wave::fill_in_initial_grav(
-            grid_context_,
-            rrgsim::nbody::calc_mass_center(particles_context_),
-            1.
-        );
+        // rrgsim::wave::fill_in_initial_grav(
+        //     grid_context_,
+        //     rrgsim::nbody::calc_mass_center(particles_context_),
+        //     1.
+        // );
 
         rrgsim::wave::solve_wave_equation(grid_context_, wave_params, wave_params.setup_iterations);
     }

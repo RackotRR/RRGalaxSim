@@ -369,22 +369,22 @@ void init_p2mesh_context(
     if (nullptr == grid_->particles_cell_info_) {
         spdlog::trace("init particles_cell_info_[{}]", over().num_particles);
         grid_->particles_cell_info_ = CuDarray<ParticleCellInfo>(over().num_particles);
-        spdlog::trace("allocated: {}", CuDarray<void>::get_total_allocated_mb());
+        spdlog::trace("allocated: {}", CuDarray<real>::get_total_allocated_mb());
     }
     if (nullptr == grid_->cell_info_) {
         spdlog::trace("init cell_info_[{}]", over().num_cells);
         grid_->cell_info_ = CuDarray<CellInfo>(over().num_cells);
-        spdlog::trace("allocated: {}", CuDarray<void>::get_total_allocated_mb());
+        spdlog::trace("allocated: {}", CuDarray<real>::get_total_allocated_mb());
     }
     if (nullptr == grid_->cell_particles_count_) {
         spdlog::trace("init cell_particles_count_[{}]", over().num_cells);
         grid_->cell_particles_count_ = CuDarray<int>(over().num_cells);
-        spdlog::trace("allocated: {}", CuDarray<void>::get_total_allocated_mb());
+        spdlog::trace("allocated: {}", CuDarray<real>::get_total_allocated_mb());
     }
     if (nullptr == grid_->particles_in_block_) {
         spdlog::trace("init particles_in_block_[{}]", over().num_cell_blocks);
         grid_->particles_in_block_ = CuDarray<int>(over().num_cell_blocks);
-        spdlog::trace("allocated: {}", CuDarray<void>::get_total_allocated_mb());
+        spdlog::trace("allocated: {}", CuDarray<real>::get_total_allocated_mb());
     }
 
     if (mb_over) {

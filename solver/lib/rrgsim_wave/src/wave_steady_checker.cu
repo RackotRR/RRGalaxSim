@@ -116,8 +116,8 @@ double SteadyStateChecker::calc_max_diff(
     );
 
 
-    BitsType diff_bits = maxdiff_.to_mem<BitsType>();
-    BitsType abs_bits = maxabs_.to_mem<BitsType>();
+    BitsType diff_bits = maxdiff_.to_mem();
+    BitsType abs_bits = maxabs_.to_mem();
 
     real diff = *reinterpret_cast<const real*>(&diff_bits);
     real abs  = *reinterpret_cast<const real*>(&abs_bits);;

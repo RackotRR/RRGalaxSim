@@ -76,7 +76,11 @@ void IOHandler::append_table(
 {
     fs::path target_dir = mb_subdir.map_or_else(
         [&](const std::string& subdir) {
-            return get_data_dir() / subdir;
+            auto path = get_data_dir() / subdir;
+            if (!fs::exists(path)) {
+                fs::create_directories(path);
+            }
+            return path;
         },
         [&](void) {
             return get_data_dir();

@@ -30,5 +30,8 @@ void print_acc_projection(
 void print_grav_projection(
     rrgsim::common::sGridContext grid_context
 );
+void print_mass_projection(
+    rrgsim::common::sGridContext grid_context
+);
 
 } // namespace rrgsim::conservation

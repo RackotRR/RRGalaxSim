@@ -400,4 +400,27 @@ void print_grav_projection(
         );
     }
 }
+
+void print_mass_projection(
+    rrgsim::common::sGridContext grid_context
+)
+{
+    auto& handler = rrgsim::io::IOHandler::instance();
+    size_t NX = grid_context->info.nx;
+
+    tl::optional<std::string> subdir = "mass_grid";
+
+    for (size_t i = 0; i < NX; ++i) {
+        rrgsim::io::TagValue r{ "r", grid_context->info.domain_min + grid_context->info.dx * i };
+        rrgsim::io::TagValue mx{ "mx", grid_context->mass[AT(i, NX / 2, NX / 2)] };
+        rrgsim::io::TagValue my{ "my", grid_context->mass[AT(NX / 2, i, NX / 2)] };
+        rrgsim::io::TagValue mz{ "mz", grid_context->mass[AT(NX / 2, NX / 2, i)] };
+        handler.append_table(
+            fmt::format("mass_axis_center_{:.10f}", grid_context->time),
+            { r, mx, my, mz },
+            subdir
+        );
+    }
+}
+
 } // namespace rrgsim::conservation

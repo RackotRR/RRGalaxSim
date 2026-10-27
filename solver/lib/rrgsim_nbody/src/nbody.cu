@@ -5,6 +5,8 @@
 
 #include "nbody.cuh"
 
+#include <cfloat>
+
 namespace rrgsim::nbody {
 
 using rrgsim::common::OverInfo;
@@ -434,6 +436,107 @@ real3 calc_mass_center(
 	spdlog::trace("\t total_mass: {}", total_mass.front());
 	spdlog::trace("\t center_of_mass: ({}, {}, {})", center_of_mass.front().x, center_of_mass.front().y, center_of_mass.front().z);
 	return center_of_mass.front();
+}
+
+__device__ double atomicMaxDoubleUniversal(double* address, double val)
+{
+    unsigned long long* address_as_ull = (unsigned long long*)address;
+    unsigned long long old = *address_as_ull, assumed;
+
+    do {
+        assumed = old;
+        double cur = __longlong_as_double(assumed);
+        if (cur >= val) break;
+        old = atomicCAS(address_as_ull, assumed, __double_as_longlong(val));
+    } while (assumed != old);
+
+    return __longlong_as_double(old);
+}
+
+// Kernel: каждый блок находит максимум в своей части,
+// затем атомарно обновляет глобальный результат
+__global__ void findMaxKernel(
+    const real* __restrict__ data,
+    size_t n,
+    real* __restrict__ result
+)
+{
+    __shared__ real sdata[256];
+
+    unsigned int tid = threadIdx.x;
+    unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    // Загружаем данные с "хвостом" = -DBL_MAX
+    real val = -DBL_MAX;
+    // grid-stride loop для обработки массивов любого размера
+    for (size_t i = idx; i < n; i += blockDim.x * gridDim.x) {
+        real v = data[i];
+        if (v > val) val = v;
+    }
+    sdata[tid] = val;
+    __syncthreads();
+
+    // Редукция в shared memory
+    for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (tid < s) {
+            if (sdata[tid + s] > sdata[tid])
+                sdata[tid] = sdata[tid + s];
+        }
+        __syncthreads();
+    }
+
+    // Один поток на блок атомарно обновляет результат
+    if (tid == 0) {
+        atomicMaxDoubleUniversal(result, sdata[0]);
+    }
+}
+
+__global__ void calcNorm3(
+    const real3* __restrict__ data,
+    real* __restrict__ result
+)
+{
+    unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    result[idx] = rrgsim::common::norm(data[idx]);
+}
+
+
+void find_max_acc_vel(
+    sParticlesContext_ context_,
+    real* max_acc_norm,
+    real* max_vel_norm
+)
+{
+    auto over = OverInfo::calc(0, context_->info.ntotal);
+
+    static RR::CUDA::CuDarray<real> norms_(over.num_particles);
+    static RR::CUDA::CuDarray<real> max_norm_(1);
+
+    if (max_acc_norm) {
+        RR::CUDA::CuCall(calcNorm3, over.particles, over.blocks) (
+            context_->acc_,
+            norms_
+        );
+        RR::CUDA::CuCall(findMaxKernel, over.particles, over.blocks) (
+            norms_,
+            over.num_particles,
+            max_norm_
+        );
+        max_norm_.to_mem(*max_acc_norm);
+    }
+
+    if (max_vel_norm) {
+        RR::CUDA::CuCall(calcNorm3, over.particles, over.blocks) (
+            context_->vel_,
+            norms_
+        );
+        RR::CUDA::CuCall(findMaxKernel, over.particles, over.blocks) (
+            norms_,
+            over.num_particles,
+            max_norm_
+        );
+        max_norm_.to_mem(*max_vel_norm);
+    }
 }
 
 } // namespace rrgsim::nbody

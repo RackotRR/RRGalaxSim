@@ -47,4 +47,10 @@ namespace rrgsim::nbody {
     real3 calc_mass_center(
         const sParticlesContext_ context_
     );
+
+    void find_max_acc_vel(
+        sParticlesContext_ context_,
+        real* max_acc_norm,
+        real* max_vel_norm
+    );
 } // namespace rrgsim::nbody

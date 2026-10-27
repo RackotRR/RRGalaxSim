@@ -31,6 +31,25 @@ void print_max_particles_in_cell(
     spdlog::info("Max count in cell: {}", max_count);
 }
 
+void print_max_acc_vel(
+    rrgsim::common::sParticlesContext_ particles_
+)
+{
+    real max_acc = 0;
+    real max_vel = 0;
+    rrgsim::nbody::find_max_acc_vel(particles_, &max_acc, &max_vel);
+    auto& handler = rrgsim::io::IOHandler::instance();
+
+    rrgsim::io::IOHandler::instance().append_table(
+        "max_acc_vel",
+        {
+            { "t", particles_->time },
+            { "max_acc", max_acc },
+            { "max_vel", max_vel }
+        }
+    );
+}
+
 enum class Method {
     NBody,
     Wave,
@@ -130,6 +149,8 @@ void integrate_PIC(
     rrgsim::conservation::print_sample_particle(particles_context);
     rrgsim::conservation::print_acc_projection(grid_context);
     rrgsim::conservation::print_grav_projection(grid_context);
+    rrgsim::conservation::print_mass_projection(grid_context);
+    print_max_acc_vel(particles_context_);
 
     print_max_particles_in_cell(grid_context_);
 
@@ -191,6 +212,7 @@ void integrate_PIC(
             particles_context->fill_device_data(particles_context_);
             grid_context->fill_device_data(grid_context_);
 
+            rrgsim::conservation::check_bounds(particles_context->pos, grid_context->info);
             rrgsim::conservation::print_conservation(
                 base_conservation_info,
                 rrgsim::nbody::calc_conservation(particles_context)
@@ -199,13 +221,19 @@ void integrate_PIC(
             rrgsim::conservation::print_sample_particle(particles_context);
             rrgsim::conservation::print_acc_projection(grid_context);
             rrgsim::conservation::print_grav_projection(grid_context);
+            rrgsim::conservation::print_mass_projection(grid_context);
+            print_max_acc_vel(particles_context_);
 
             next_save += sim_params.dt_save;
             timer_iterations.finish();
             spdlog::info("Time between saves: {} seconds", timer_iterations.average<std::chrono::seconds>());
-            spdlog::info("Time total: {} seconds",
+
+            long long saves_left = static_cast<long long>((sim_params.time_max - time) / sim_params.dt_save);
+            spdlog::info("Time total: {} seconds (est. ~{} min)",
                 timer_iterations.total<std::chrono::seconds>() +
-                timer_init.total<std::chrono::seconds>()
+                timer_init.total<std::chrono::seconds>(),
+                // estimate in min.
+                timer_iterations.average<std::chrono::milliseconds>() * saves_left / 60'000
             );
 
             ++saves_without_dump;

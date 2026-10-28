@@ -513,6 +513,10 @@ void find_max_acc_vel(
     static RR::CUDA::CuDarray<real> max_norm_(1);
 
     if (max_acc_norm) {
+        norms_.set_zero();
+        max_norm_.set_zero();
+        *max_acc_norm = 0;
+
         RR::CUDA::CuCall(calcNorm3, over.particles, over.blocks) (
             context_->acc_,
             norms_
@@ -526,6 +530,10 @@ void find_max_acc_vel(
     }
 
     if (max_vel_norm) {
+        norms_.set_zero();
+        max_norm_.set_zero();
+        *max_vel_norm = 0;
+
         RR::CUDA::CuCall(calcNorm3, over.particles, over.blocks) (
             context_->vel_,
             norms_

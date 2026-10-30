@@ -14,8 +14,8 @@
 #include "rrgsim_log.h"
 #include "rrgsim_conservation.cuh"
 #include "nbody.cuh"
-#include "p2mesh.cuh"
-#include "mesh2p.cuh"
+#include "rm_p2mesh.cuh"
+#include "rm_mesh2p.cuh"
 #include "wave.cuh"
 
 #include "rrgsim_nbody.h"
@@ -61,13 +61,13 @@ void check_grid(
     rrgsim::conservation::check_bounds(particles_data.pos, grid_info);
 
     rrgsim::nbody::nbody_grav(particles_context_);
-    rrgsim::p2mesh::convert_particles_to_grid(
+    rrgsim::rect_mesh::convert_particles_to_grid(
         particles_context_,
         grid_context_
     );
 
     // auto mass_center = rrgsim::nbody::calc_mass_center(particles_context_);
-    // rrgsim::p2mesh::calc_grav_by_center_of_mass(grid_context_, mass_center, 1.);
+    // rrgsim::rect_mesh::calc_grav_by_center_of_mass(grid_context_, mass_center, 1.);
     // rrgsim::wave::solve_wave_equation(
     //     grid_context_,
     //     wave_params
@@ -84,7 +84,7 @@ void check_grid(
     particles_context->fill_device_data(particles_context_);
     auto conservation_nbody = rrgsim::nbody::calc_conservation(particles_context);
 
-    auto grid_projected = rrgsim::mesh2p::project_grid_onto_particles(
+    auto grid_projected = rrgsim::rect_mesh::project_grid_onto_particles(
         grid_context_,
         particles_context_
     );

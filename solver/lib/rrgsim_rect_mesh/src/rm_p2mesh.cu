@@ -7,11 +7,11 @@
 #include <spdlog/spdlog.h>
 #include <rrgsim_tl.h>
 
-#include "p2mesh.cuh"
+#include "rm_p2mesh.cuh"
 
 #include <numeric>
 
-namespace rrgsim::p2mesh {
+namespace rrgsim::rect_mesh {
 
 using rrgsim::common::grid_info_;
 using rrgsim::common::BLOCK_SIZE;
@@ -505,4 +505,4 @@ void calc_grav_by_center_of_mass(
     );
 }
 
-} // namespace rrgsim::p2mesh
+} // namespace rrgsim::rect_mesh

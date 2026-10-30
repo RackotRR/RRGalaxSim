@@ -4,7 +4,7 @@
 #include <co_particles_context.cuh>
 #include <co_grid_context.cuh>
 
-namespace rrgsim::p2mesh {
+namespace rrgsim::rect_mesh {
     using common::sGridContext_;
     using common::sParticlesContext_;
 
@@ -32,4 +32,4 @@ namespace rrgsim::p2mesh {
         real3 center_of_mass,
         real total_mass
     );
-} // namespace rrgsim::p2mesh
+} // namespace rrgsim::rect_mesh

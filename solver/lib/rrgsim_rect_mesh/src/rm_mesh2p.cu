@@ -2,11 +2,11 @@
 #include <co_device_utils.cuh>
 #include <co_device_structs.cuh>
 
-#include "mesh2p.cuh"
+#include "rm_mesh2p.cuh"
 
 #include <spdlog/spdlog.h>
 
-namespace rrgsim::mesh2p {
+namespace rrgsim::rect_mesh {
 
 using rrgsim::common::detail::ParticleCellInfo;
 using rrgsim::common::detail::CellInfo;
@@ -202,4 +202,4 @@ project_grid_onto_particles(
 }
 
 
-} // namespace rrgsim::mesh2p
+} // namespace rrgsim::rect_mesh

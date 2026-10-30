@@ -6,8 +6,8 @@
 #include <co_particles_context.cuh>
 
 #include <nbody.cuh>
-#include <p2mesh.cuh>
-#include <mesh2p.cuh>
+#include <rm_p2mesh.cuh>
+#include <rm_mesh2p.cuh>
 #include <wave.cuh>
 
 #include <RR/Time/Timer.h>
@@ -91,7 +91,7 @@ void integrate_PIC(
     }
     else if (method == Method::Wave) {
         // масса
-        rrgsim::p2mesh::convert_particles_to_grid(particles_context_, grid_context_);
+        rrgsim::rect_mesh::convert_particles_to_grid(particles_context_, grid_context_);
 
         // real3 mass_center = rrgsim::nbody::calc_mass_center(particles_context_);
         // rrgsim::wave::set_boundary_monopole(
@@ -117,10 +117,10 @@ void integrate_PIC(
     }
     else if (method == Method::MassCenter) {
         // масса
-        rrgsim::p2mesh::convert_particles_to_grid(particles_context_, grid_context_);
+        rrgsim::rect_mesh::convert_particles_to_grid(particles_context_, grid_context_);
 
         auto mass_center = rrgsim::nbody::calc_mass_center(particles_context_);
-        rrgsim::p2mesh::calc_grav_by_center_of_mass(grid_context_, mass_center, 1.);
+        rrgsim::rect_mesh::calc_grav_by_center_of_mass(grid_context_, mass_center, 1.);
     }
 
     // Расчёт ускорения в начальный момент времени
@@ -128,18 +128,18 @@ void integrate_PIC(
         rrgsim::nbody::nbody_acceleration(particles_context_);
     }
     else {
-        rrgsim::p2mesh::calc_acceleration_field(grid_context_);
+        rrgsim::rect_mesh::calc_acceleration_field(grid_context_);
     }
 
     // Синхронизация частиц и сетки для сохранения данных
     if (method == Method::NBody) {
-        rrgsim::p2mesh::convert_particles_to_grid(particles_context_, grid_context_);
-        rrgsim::p2mesh::project_particles_acceleration_on_grid(particles_context_, grid_context_);
-        rrgsim::p2mesh::project_particles_grav_on_grid(particles_context_, grid_context_);
+        rrgsim::rect_mesh::convert_particles_to_grid(particles_context_, grid_context_);
+        rrgsim::rect_mesh::project_particles_acceleration_on_grid(particles_context_, grid_context_);
+        rrgsim::rect_mesh::project_particles_grav_on_grid(particles_context_, grid_context_);
     }
     else {
-        rrgsim::mesh2p::project_grid_grav_on_particles(grid_context_, particles_context_);
-        rrgsim::mesh2p::project_grid_acceleration_on_particles(grid_context_, particles_context_);
+        rrgsim::rect_mesh::project_grid_grav_on_particles(grid_context_, particles_context_);
+        rrgsim::rect_mesh::project_grid_acceleration_on_particles(grid_context_, particles_context_);
     }
 
     grid_context->fill_device_data(grid_context_);
@@ -173,18 +173,18 @@ void integrate_PIC(
             rrgsim::nbody::nbody_acceleration(particles_context_);
         }
         else {
-            rrgsim::p2mesh::convert_particles_to_grid(particles_context_, grid_context_);
+            rrgsim::rect_mesh::convert_particles_to_grid(particles_context_, grid_context_);
 
             if (method == Method::Wave) {
                 rrgsim::wave::solve_wave_equation(grid_context_, wave_params, wave_params.iterations);
             }
             else if (method == Method::MassCenter) {
                 auto mass_center = rrgsim::nbody::calc_mass_center(particles_context_);
-                rrgsim::p2mesh::calc_grav_by_center_of_mass(grid_context_, mass_center, 1.);
+                rrgsim::rect_mesh::calc_grav_by_center_of_mass(grid_context_, mass_center, 1.);
             }
 
-            rrgsim::p2mesh::calc_acceleration_field(grid_context_);
-            rrgsim::mesh2p::project_grid_acceleration_on_particles(grid_context_, particles_context_);
+            rrgsim::rect_mesh::calc_acceleration_field(grid_context_);
+            rrgsim::rect_mesh::project_grid_acceleration_on_particles(grid_context_, particles_context_);
         }
 
         rrgsim::nbody::correct_step(particles_context_, sim_params);
@@ -202,11 +202,11 @@ void integrate_PIC(
             // подготавливаем ускорение и потенциал для вывода
             if (method == Method::NBody) {
                 rrgsim::nbody::nbody_grav(particles_context_);
-                rrgsim::p2mesh::project_particles_acceleration_on_grid(particles_context_, grid_context_);
-                rrgsim::p2mesh::project_particles_grav_on_grid(particles_context_, grid_context_);
+                rrgsim::rect_mesh::project_particles_acceleration_on_grid(particles_context_, grid_context_);
+                rrgsim::rect_mesh::project_particles_grav_on_grid(particles_context_, grid_context_);
             }
             else {
-                rrgsim::mesh2p::project_grid_grav_on_particles(grid_context_, particles_context_);
+                rrgsim::rect_mesh::project_grid_grav_on_particles(grid_context_, particles_context_);
             }
 
             particles_context->fill_device_data(particles_context_);
@@ -229,9 +229,9 @@ void integrate_PIC(
             spdlog::info("Time between saves: {} seconds", timer_iterations.average<std::chrono::seconds>());
 
             long long saves_left = static_cast<long long>((sim_params.time_max - time) / sim_params.dt_save);
-            spdlog::info("Time total: {} seconds (est. ~{} min)",
-                timer_iterations.total<std::chrono::seconds>() +
-                timer_init.total<std::chrono::seconds>(),
+            spdlog::info("Time total: {} min (est. ~{} min)",
+                timer_iterations.total<std::chrono::minutes>() +
+                timer_init.total<std::chrono::minutes>(),
                 // estimate in min.
                 timer_iterations.average<std::chrono::milliseconds>() * saves_left / 60'000
             );
@@ -250,6 +250,11 @@ void integrate_PIC(
             }
         }
     }
+
+    spdlog::info("integration completed ({} min)",
+        timer_iterations.total<std::chrono::minutes>() +
+        timer_init.total<std::chrono::minutes>()
+    );
 }
 
 } // namespace rrgsim

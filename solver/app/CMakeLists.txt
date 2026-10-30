@@ -20,6 +20,7 @@ target_link_libraries(${PROJECT_NAME}
         rrgsim_common
         rrgsim_io
         rrgsim_nbody
+        rrgsim_rect_mesh
         rrgsim_wave
     PRIVATE
         RR::Time

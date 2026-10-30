@@ -2,7 +2,7 @@
 #include <co_particles_context.cuh>
 #include <co_grid_context.cuh>
 
-namespace rrgsim::mesh2p {
+namespace rrgsim::rect_mesh {
 
 using rrgsim::common::GridProjectionOnParticles;
 using rrgsim::common::sGridContext_;
@@ -24,4 +24,4 @@ project_grid_onto_particles(
     sParticlesContext_ particles_context_
 );
 
-} // namespace rrgsim::mesh2p
+} // namespace rrgsim::rect_mesh

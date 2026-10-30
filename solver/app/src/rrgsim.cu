@@ -1,108 +1,13 @@
 #include <co_sim_params.h>
-#include <co_particles.h>
-#include <co_particles_context.cuh>
-#include <co_grid_context.cuh>
-#include <co_device_utils.cuh>
 
 #include "io_particles_csv.h"
 #include "io_json.h"
 #include "io_handler.h"
 
-#include <fstream>
-#include <numeric>
-
 #include "rrgsim_log.h"
-#include "rrgsim_conservation.cuh"
-#include "nbody.cuh"
-#include "rm_p2mesh.cuh"
-#include "rm_mesh2p.cuh"
-#include "wave.cuh"
 
-#include "rrgsim_nbody.h"
-#include "rrgsim_pic.h"
+#include "rrgsim_integration.cuh"
 
-
-void print_grid_nbody_projection(
-    std::string filename,
-    const std::vector<real>& nbody,
-    const std::vector<real>& grid,
-    const std::vector<real3>& pos
-)
-{
-    auto& handler = rrgsim::io::IOHandler::instance();
-
-    for (size_t i = 0; i < nbody.size(); ++i) {
-        rrgsim::io::TagValue ii{ "i", (real)i };
-        rrgsim::io::TagValue g_nbody{ "nbody", nbody[i] };
-        rrgsim::io::TagValue g_grid{ "grid", grid[i] };
-        rrgsim::io::TagValue x{ "x", pos[i].x };
-        rrgsim::io::TagValue y{ "y", pos[i].y };
-        rrgsim::io::TagValue z{ "z", pos[i].z };
-
-        handler.append_table(filename, { ii, g_nbody, g_grid, x, y, z });
-    }
-};
-
-void check_grid(
-    rrgsim::common::ParticlesData particles_data,
-    rrgsim::common::GridInfo grid_info,
-    rrgsim::common::WaveParams wave_params
-)
-{
-    RR::CUDA::CuCopyToSymbol(
-        wave_params,
-        rrgsim::common::wave_params_,
-        RR::CUDA::ToDevice
-    );
-
-    auto particles_context_ = rrgsim::common::initialize_particles_context_(particles_data);
-    auto grid_context_ = rrgsim::common::initialize_grid_context_(grid_info);
-    auto grid_context = rrgsim::common::initialize_grid_context(grid_info);
-    rrgsim::conservation::check_bounds(particles_data.pos, grid_info);
-
-    rrgsim::nbody::nbody_grav(particles_context_);
-    rrgsim::rect_mesh::convert_particles_to_grid(
-        particles_context_,
-        grid_context_
-    );
-
-    // auto mass_center = rrgsim::nbody::calc_mass_center(particles_context_);
-    // rrgsim::rect_mesh::calc_grav_by_center_of_mass(grid_context_, mass_center, 1.);
-    // rrgsim::wave::solve_wave_equation(
-    //     grid_context_,
-    //     wave_params
-    // );
-
-    grid_context->fill_device_data(grid_context_);
-    rrgsim::conservation::print_grav_projection(grid_context);
-
-    auto grav_nbody = particles_context_->grav_.to_vector();
-    auto mass_nbody = particles_data.mass;
-
-    // conservation
-    auto particles_context = rrgsim::common::initialize_particles_context(particles_data);
-    particles_context->fill_device_data(particles_context_);
-    auto conservation_nbody = rrgsim::nbody::calc_conservation(particles_context);
-
-    auto grid_projected = rrgsim::rect_mesh::project_grid_onto_particles(
-        grid_context_,
-        particles_context_
-    );
-    particles_context->grav = grid_projected.grav;
-    auto conservation_grid_projected = rrgsim::nbody::calc_conservation(particles_context);
-    spdlog::info("Conservation Grid Projected VS NBody");
-    rrgsim::conservation::print_conservation(conservation_nbody, conservation_grid_projected);
-
-    print_grid_nbody_projection("mass_nbody_grid", mass_nbody, grid_projected.mass, particles_data.pos);
-    print_grid_nbody_projection("grav_nbody_grid", grav_nbody, grid_projected.grav, particles_data.pos);
-
-    real mass_grid = std::accumulate(
-        grid_context->mass.begin(),
-        grid_context->mass.end(),
-        0.
-    );
-    spdlog::info("Mass in grid: {}", mass_grid);
-}
 
 int main(int argc, const char** argv) {
     if (argc < 2) {
@@ -139,21 +44,13 @@ int main(int argc, const char** argv) {
         }
 
         try {
-            rrgsim::integrate_PIC(
-                std::move(expected_particles_data).value(),
-                std::move(parsed.sim_params),
-                std::move(parsed.mb_grid_info).value(),
-                parsed.mb_wave_params.value()
-            );
-            // check_grid(
-            //     std::move(expected_particles_data).value(),
-            //     std::move(parsed.mb_grid_info).value(),
-            //     parsed.mb_wave_params.value()
-            // );
-            // rrgsim::integrate_nbody(
-            //     std::move(expected_particles_data).value(),
-            //     std::move(parsed.sim_params)
-            // );
+            rrgsim::integration::IntegrationParams params;
+            params.particles_data = std::move(expected_particles_data).value();
+            params.sim_params = std::move(parsed.sim_params);
+            params.mb_grid_info = std::move(parsed.mb_grid_info).value();
+            params.mb_wave_params = std::move(parsed.mb_wave_params).value();
+
+            rrgsim::integration::integrate(params);
         }
         catch (const std::exception& ex) {
             spdlog::error("Exception: {}", ex.what());

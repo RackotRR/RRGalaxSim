@@ -10,7 +10,7 @@ namespace rrgsim::rect_mesh {
 
 using rrgsim::common::detail::ParticleCellInfo;
 using rrgsim::common::detail::CellInfo;
-using rrgsim::common::grid_info_;
+using rrgsim::common::rect_grid_info_;
 
 /// @note Запуск по частицам
 __global__ void projectCellMassOnParticles(
@@ -54,9 +54,9 @@ __global__ void interpolate_acceleration_to_particles_kernel(
     int p = blockIdx.x * blockDim.x + threadIdx.x;
     if (p >= n_particles) return;
 
-    const int nx = grid_info_.nx;
-    const real dx = grid_info_.dx;
-    const real domain_min = grid_info_.domain_min;
+    const int nx = rect_grid_info_.nx;
+    const real dx = rect_grid_info_.dx;
+    const real domain_min = rect_grid_info_.domain_min;
 
     real3 pos = particle_pos[p];
 

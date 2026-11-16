@@ -279,15 +279,9 @@ void print_conservation(
 
 void check_bounds(
     const std::vector<real3>& particles_pos,
-    const rrgsim::common::GridInfo& grid_info
+    const rrgsim::common::RectGridInfo& grid_info
 )
 {
-    spdlog::debug("Check bounds");
-    if (particles_pos.empty()) {
-        spdlog::trace("\t No particles_pos passed");
-        return;
-    }
-
     real max_x = particles_pos.front().x;
     real max_y = particles_pos.front().y;
     real max_z = particles_pos.front().z;
@@ -328,6 +322,32 @@ void check_bounds(
     }
     if (max_z > grid_info.domain_max) {
         spdlog::error(MAX_BOUNDS_VIOLATION_MESSAGE, "Z", max_z, grid_info.domain_max);
+    }
+}
+void check_bounds(
+    const std::vector<real3>& particles_pos,
+    const rrgsim::common::SphGridInfo& grid_info
+)
+{
+    spdlog::warn("\t TODO: check_bounds for spherical grid");
+}
+
+void check_bounds(
+    const std::vector<real3>& particles_pos,
+    const rrgsim::common::GridInfoVariant& grid_info
+)
+{
+    spdlog::debug("Check bounds");
+    if (particles_pos.empty()) {
+        spdlog::trace("\t No particles_pos passed");
+        return;
+    }
+
+    if (auto rect_grid_info = std::get_if<rrgsim::common::RectGridInfo>(&grid_info); rect_grid_info) {
+        check_bounds(particles_pos, *rect_grid_info);
+    }
+    else if (auto sph_grid_info = std::get_if<rrgsim::common::SphGridInfo>(&grid_info); sph_grid_info) {
+        check_bounds(particles_pos, *sph_grid_info);
     }
 }
 

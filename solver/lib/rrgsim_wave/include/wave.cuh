@@ -27,7 +27,7 @@ namespace rrgsim::wave {
     /// Периодические ГУ: средняя плотность считается по сетке
     void set_boundary_periodic(
         real total_mass,
-        const rrgsim::common::GridInfo& g,
+        const rrgsim::common::GridInfoVariant& g,
         bool keep_layer = false
     );
 } // namespace rrgsim::wave

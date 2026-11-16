@@ -17,24 +17,50 @@ void GridContext::fill_device_data(
     this->iter = context_->iter;
 }
 
+size_t get_grid_size(const GridInfoVariant& grid_info) {
+    if (auto rect_grid_info = std::get_if<RectGridInfo>(&grid_info); rect_grid_info)  {
+        return rrgsim::common::cube(rect_grid_info->nx);
+    }
+    else if (auto sph_grid_info = std::get_if<SphGridInfo>(&grid_info); sph_grid_info) {
+        return sph_grid_info->nr *
+                sph_grid_info->nt *
+                sph_grid_info->np;
+    }
+    else {
+        throw std::runtime_error{ "get_grid_size with invalid grid_info variant" };
+    }
+}
+
+void fill_in_grid_info_(const GridInfoVariant& grid_info) {
+    if (auto rect_grid_info = std::get_if<RectGridInfo>(&grid_info); rect_grid_info)  {
+        RR::CUDA::CuCopyToSymbol(*rect_grid_info, rrgsim::common::rect_grid_info_, RR::CUDA::ToDevice);
+    }
+    else if (auto sph_grid_info = std::get_if<SphGridInfo>(&grid_info); sph_grid_info) {
+        RR::CUDA::CuCopyToSymbol(*sph_grid_info, rrgsim::common::sph_grid_info_, RR::CUDA::ToDevice);
+    }
+    else {
+        throw std::runtime_error{ "fill_in_grid_info_ with invalid grid_info variant" };
+    }
+}
+
 sGridContext_
 initialize_grid_context_(
-    GridInfo grid_info
+    GridInfoVariant grid_info
 )
 {
     using RR::CUDA::CuDarray;
     sGridContext_ context_ = std::make_shared<GridContext_>();
 
-    size_t nx3 = rrgsim::common::cube(grid_info.nx);
+    size_t N = get_grid_size(grid_info);
 
-    context_->mass_ = CuDarray<real>(nx3);
-    context_->grav_prev_ = CuDarray<real>(nx3);
-    context_->grav_curr_ = CuDarray<real>(nx3);
-    context_->grav_next_ = CuDarray<real>(nx3);
-    context_->acc_ = CuDarray<real3>(nx3);
+    context_->mass_ = CuDarray<real>(N);
+    context_->grav_prev_ = CuDarray<real>(N);
+    context_->grav_curr_ = CuDarray<real>(N);
+    context_->grav_next_ = CuDarray<real>(N);
+    context_->acc_ = CuDarray<real3>(N);
 
     context_->info = grid_info;
-    RR::CUDA::CuCopyToSymbol(context_->info, rrgsim::common::grid_info_, RR::CUDA::ToDevice);
+    fill_in_grid_info_(grid_info);
 
     spdlog::info("initialize_grid_context_: GPU memory occupied now - {} MB", CuDarray<real>::get_total_allocated_mb());
 
@@ -43,15 +69,15 @@ initialize_grid_context_(
 
 sGridContext
 initialize_grid_context(
-    GridInfo grid_info
+    GridInfoVariant grid_info
 )
 {
     spdlog::debug("initialize_grid_context");
     sGridContext context = std::make_shared<GridContext>();
 
-    size_t nx3 = rrgsim::common::cube(grid_info.nx);
-    context->grav = std::vector<real>(nx3);
-    context->mass = std::vector<real>(nx3);
+    size_t N = get_grid_size(grid_info);
+    context->grav = std::vector<real>(N);
+    context->mass = std::vector<real>(N);
     context->info = grid_info;
     return context;
 }

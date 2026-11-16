@@ -1,5 +1,6 @@
 #pragma once
 #include <limits>
+#include <variant>
 #include <co_types.h>
 
 namespace rrgsim::common {
@@ -12,8 +13,8 @@ struct ParticlesInfo {
     int ntotal;
 };
 
-/// @brief Равномерная сетка
-struct GridInfo {
+/// @brief Равномерная декартова сетка
+struct RectGridInfo {
     /// @brief Количество ячеек в одном измерении
     int nx;
 
@@ -31,6 +32,25 @@ struct GridInfo {
     /// @brief Основная область моделирования
     real sim_l;
 };
+
+struct SphGridInfo {
+    /// @brief Число узлов по радиусу
+    int nr;
+
+    /// @brief Число узлов по широте (theta)
+    int nt;
+
+    /// @brief Число узлов по долготе (phi)
+    int np;
+
+    /// @brief Внешний радиус
+    double radius_max;
+
+    /// @brief Показатель степени для проекции радиуса (r = R*x^p)
+    double proj_r_degree;
+};
+
+using GridInfoVariant = std::variant<RectGridInfo, SphGridInfo>;
 
 /// @brief Параметры волновой модели
 struct WaveParams {

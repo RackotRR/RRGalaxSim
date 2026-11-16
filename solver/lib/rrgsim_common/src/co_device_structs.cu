@@ -6,7 +6,9 @@ namespace rrgsim::common {
 
 __constant__ ParticlesInfo particles_info_;
 
-__constant__ GridInfo grid_info_;
+__constant__ SphGridInfo sph_grid_info_;
+
+__constant__ RectGridInfo rect_grid_info_;
 
 __constant__ WaveParams wave_params_;
 

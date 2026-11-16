@@ -10,12 +10,12 @@ namespace rrgsim::integration {
 using rrgsim::common::ParticlesData;
 using rrgsim::common::SimParams;
 using rrgsim::common::WaveParams;
-using rrgsim::common::GridInfo;
+using rrgsim::common::GridInfoVariant;
 
 struct IntegrationParams {
     ParticlesData particles_data;
     SimParams sim_params;
-    tl::optional<GridInfo> mb_grid_info;
+    tl::optional<GridInfoVariant> mb_grid_info;
     tl::optional<WaveParams> mb_wave_params;
 };
 

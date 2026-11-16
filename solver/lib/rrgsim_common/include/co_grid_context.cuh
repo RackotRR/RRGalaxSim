@@ -42,7 +42,7 @@ namespace rrgsim::common {
         CuDarray<int> cell_particles_count_;
         CuDarray<int> particles_in_block_;
 
-        GridInfo info;
+        GridInfoVariant info;
     };
     using sGridContext_ = std::shared_ptr<GridContext_>;
 
@@ -53,7 +53,7 @@ namespace rrgsim::common {
         std::vector<real> mass;
         std::vector<real> grav;
         std::vector<real3> acc;
-        GridInfo info;
+        GridInfoVariant info;
 
         void fill_device_data(
             const sGridContext_ context_
@@ -61,15 +61,17 @@ namespace rrgsim::common {
     };
     using sGridContext = std::shared_ptr<GridContext>;
 
+    size_t get_grid_size(const GridInfoVariant& grid_info);
+    void fill_in_grid_info_(const GridInfoVariant& grid_info);
 
     sGridContext_
     initialize_grid_context_(
-        GridInfo grid_info
+        GridInfoVariant grid_info
     );
 
     sGridContext
     initialize_grid_context(
-        GridInfo grid_info
+        GridInfoVariant grid_info
     );
 
     // данные проекции значений на сетке на частицы
@@ -77,7 +79,7 @@ namespace rrgsim::common {
         std::vector<real> mass;
         std::vector<real> grav;
 
-        GridInfo grid_info;
+        GridInfoVariant grid_info;
         ParticlesInfo particles_info;
     };
 

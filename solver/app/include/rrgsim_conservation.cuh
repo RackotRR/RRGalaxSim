@@ -18,7 +18,15 @@ void print_conservation(
 
 void check_bounds(
     const std::vector<real3>& particles_pos,
-    const rrgsim::common::GridInfo& grid_info
+    const rrgsim::common::RectGridInfo& grid_info
+);
+void check_bounds(
+    const std::vector<real3>& particles_pos,
+    const rrgsim::common::SphGridInfo& grid_info
+);
+void check_bounds(
+    const std::vector<real3>& particles_pos,
+    const rrgsim::common::GridInfoVariant& grid_info
 );
 
 void print_sample_particle(

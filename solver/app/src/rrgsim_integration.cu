@@ -28,7 +28,7 @@ void integrate(
 
     params.mb_grid_info
         .transform(
-            [&](const GridInfo& grid_info) {
+            [&](const GridInfoVariant& grid_info) {
                 grid_context = rrgsim::common::initialize_grid_context(grid_info);
                 grid_context_ = rrgsim::common::initialize_grid_context_(grid_info);
                 rrgsim::conservation::check_bounds(particles_context->pos, grid_info);

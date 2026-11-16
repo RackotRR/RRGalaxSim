@@ -13,7 +13,7 @@
 
 namespace rrgsim::rect_mesh {
 
-using rrgsim::common::grid_info_;
+using rrgsim::common::rect_grid_info_;
 using rrgsim::common::BLOCK_SIZE;
 using rrgsim::common::detail::ParticleCellInfo;
 using rrgsim::common::detail::CellInfo;
@@ -34,17 +34,17 @@ namespace {
         real3 p = particles_pos[i_part];
 
         // Вычисление индексов ячейки
-        int NX = grid_info_.nx;
+        int NX = rect_grid_info_.nx;
         int ix = rrgsim::common::clamp(
-            (int)((p.x - grid_info_.domain_min) / grid_info_.dx),
+            (int)((p.x - rect_grid_info_.domain_min) / rect_grid_info_.dx),
             (int)0,
             (int)(NX - 1));
         int iy = rrgsim::common::clamp(
-            (int)((p.y - grid_info_.domain_min) / grid_info_.dx),
+            (int)((p.y - rect_grid_info_.domain_min) / rect_grid_info_.dx),
             (int)0,
             (int)(NX - 1));
         int iz = rrgsim::common::clamp(
-            (int)((p.z - grid_info_.domain_min) / grid_info_.dx),
+            (int)((p.z - rect_grid_info_.domain_min) / rect_grid_info_.dx),
             (int)0,
             (int)(NX - 1));
 
@@ -181,16 +181,16 @@ namespace {
     {
         int p = blockIdx.x * blockDim.x + threadIdx.x;
 
-        const int NX = grid_info_.nx;
-        const real inv_dx = 1.f / grid_info_.dx;
+        const int NX = rect_grid_info_.nx;
+        const real inv_dx = 1.f / rect_grid_info_.dx;
 
         real3 pos = particle_pos[p];
         real  m   = particle_mass[p];
 
         // Физические координаты -> индексы центров ячеек (cell-centered, сдвиг -0.5)
-        real u = (pos.x - grid_info_.domain_min) * inv_dx - 0.5f;
-        real v = (pos.y - grid_info_.domain_min) * inv_dx - 0.5f;
-        real w = (pos.z - grid_info_.domain_min) * inv_dx - 0.5f;
+        real u = (pos.x - rect_grid_info_.domain_min) * inv_dx - 0.5f;
+        real v = (pos.y - rect_grid_info_.domain_min) * inv_dx - 0.5f;
+        real w = (pos.z - rect_grid_info_.domain_min) * inv_dx - 0.5f;
 
         // Клэмпим к допустимому диапазону центров ячеек [0, nx-1]
         const real eps = 1E-6;
@@ -243,8 +243,8 @@ namespace {
         int ix = threadIdx.x + blockIdx.x * blockDim.x;
         int iy = threadIdx.y + blockIdx.y * blockDim.y;
         int iz = threadIdx.z + blockIdx.z * blockDim.z;
-        const int NX = grid_info_.nx;
-        const real DX = grid_info_.dx;
+        const int NX = rect_grid_info_.nx;
+        const real DX = rect_grid_info_.dx;
         if (ix >= NX || iy >= NX || iz >= NX) return;
 
         size_t xyz = AT(ix, iy, iz);
@@ -302,15 +302,15 @@ namespace {
         int j = blockIdx.y * blockDim.y + threadIdx.y;
         int k = blockIdx.z * blockDim.z + threadIdx.z;
 
-        int NX = grid_info_.nx;
+        int NX = rect_grid_info_.nx;
 
         // Проверка границ
         if (i >= NX || j >= NX || k >= NX) return;
 
         // Координаты ячейки
-        real x = grid_info_.domain_min + (i + 0.5) * grid_info_.dx;
-        real y = grid_info_.domain_min + (j + 0.5) * grid_info_.dx;
-        real z = grid_info_.domain_min + (k + 0.5) * grid_info_.dx;
+        real x = rect_grid_info_.domain_min + (i + 0.5) * rect_grid_info_.dx;
+        real y = rect_grid_info_.domain_min + (j + 0.5) * rect_grid_info_.dx;
+        real z = rect_grid_info_.domain_min + (k + 0.5) * rect_grid_info_.dx;
 
         // Вектор от центра масс до точки
         real dx_pos = x - center_of_mass.x;

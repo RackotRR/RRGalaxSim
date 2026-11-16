@@ -1,6 +1,7 @@
 #include <fstream>
 
 #include <spdlog/spdlog.h>
+#include <range/v3/functional/overload.hpp>
 
 #include "io_json.h"
 
@@ -20,12 +21,12 @@ namespace rrgsim::common {
         }
     }
 
-    void to_json(nlohmann::json& j, const GridInfo& grid_info) {
+    void to_json(nlohmann::json& j, const RectGridInfo& grid_info) {
         j.at("nx") = grid_info.nx;
         j.at("dx") = grid_info.dx;
         j.at("bc_frac") = 1. - grid_info.sim_l / grid_info.domain_l;
     }
-    void from_json(const nlohmann::json& j, GridInfo& grid_info) {
+    void from_json(const nlohmann::json& j, RectGridInfo& grid_info) {
         j.at("nx").get_to(grid_info.nx);
         j.at("dx").get_to(grid_info.dx);
 
@@ -37,6 +38,23 @@ namespace rrgsim::common {
 
         grid_info.domain_max = 0.5 * grid_info.domain_l;
         grid_info.domain_min = -0.5 * grid_info.domain_l;
+    }
+
+    void to_json(nlohmann::json& j, const SphGridInfo& s) {
+        j = nlohmann::json{
+            {"nr",            s.nr},
+            {"nt",            s.nt},
+            {"np",            s.np},
+            {"radius_max",    s.radius_max},
+            {"proj_r_degree", s.proj_r_degree}
+        };
+    }
+    void from_json(const nlohmann::json& j, SphGridInfo& s) {
+        j.at("nr").get_to(s.nr);
+        j.at("nt").get_to(s.nt);
+        j.at("np").get_to(s.np);
+        j.at("radius_max").get_to(s.radius_max);
+        j.at("proj_r_degree").get_to(s.proj_r_degree);
     }
 
     void to_json(nlohmann::json& j, const WaveParams& wave_params) {
@@ -98,6 +116,47 @@ namespace rrgsim::common {
         }
     }
 } // namespace rrgsim::common
+
+namespace nlohmann {
+
+        void adl_serializer<rrgsim::common::GridInfoVariant>::to_json(
+            json& j,
+            const rrgsim::common::GridInfoVariant& s
+        )
+        {
+            std::visit([&j](const auto& alt) {
+                j = alt; // Вызовет соответствующий to_json для Circle или Rect
+            }, s);
+
+            // Добавляем тег, чтобы при чтении понять, какой это тип
+            j["type"] = std::visit(
+                ranges::overload(
+                    [](const rrgsim::common::RectGridInfo&) {
+                        return RECT_NAME;
+                    },
+                    [](const rrgsim::common::SphGridInfo&) {
+                        return SPH_NAME;
+                    }
+                ),
+                s
+            );
+        }
+
+        void adl_serializer<rrgsim::common::GridInfoVariant>::from_json(
+            const json& j,
+            rrgsim::common::GridInfoVariant& s
+        )
+        {
+            const auto& type = j.at("type").get<std::string>();
+            if (type == RECT_NAME) {
+                s = j.get<rrgsim::common::RectGridInfo>();
+            }
+            else if (type == SPH_NAME) {
+                s = j.get<rrgsim::common::SphGridInfo>();
+            }
+        }
+
+} // namespace nlohmann
 
 namespace rrgsim::io {
     void to_json(nlohmann::json& j, const IniGalaxyData& galaxy_data) {

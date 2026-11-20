@@ -50,7 +50,7 @@ struct SphGridInfo {
     double proj_r_degree;
 };
 
-using GridInfoVariant = std::variant<RectGridInfo, SphGridInfo>;
+using GridInfoVariant = std::variant<std::monostate, RectGridInfo, SphGridInfo>;
 
 /// @brief Параметры волновой модели
 struct WaveParams {

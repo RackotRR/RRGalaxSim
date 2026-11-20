@@ -11,14 +11,13 @@
 
 #include <numeric>
 
-namespace rrgsim::rect_mesh {
+namespace rrgsim::mesh::rect {
 
 using rrgsim::common::rect_grid_info_;
 using rrgsim::common::BLOCK_SIZE;
 using rrgsim::common::detail::ParticleCellInfo;
 using rrgsim::common::detail::CellInfo;
 using rrgsim::common::OverInfo;
-using rrgsim::common::SimParams;
 using RR::CUDA::CuDarray;
 
 namespace {
@@ -334,7 +333,7 @@ namespace {
 } // namespace
 
 
-void calc_acceleration_field(
+void RectP2MeshSolver::calc_acceleration_field(
     const sGridContext_ grid_
 )
 {
@@ -343,7 +342,7 @@ void calc_acceleration_field(
 
     using rrgsim::common::BLOCK_SIZE_IN_3D;
 
-    unsigned blocks_count = static_cast<unsigned>(OverInfo::split_into_blocks(grid_->info.nx, BLOCK_SIZE_IN_3D));
+    unsigned blocks_count = static_cast<unsigned>(OverInfo::split_into_blocks(grid_info(grid_).nx, BLOCK_SIZE_IN_3D));
     dim3 threads_per_block{ BLOCK_SIZE_IN_3D, BLOCK_SIZE_IN_3D, BLOCK_SIZE_IN_3D };
     dim3 blocks_per_grid{ blocks_count, blocks_count, blocks_count };
 
@@ -353,15 +352,18 @@ void calc_acceleration_field(
     );
 }
 
-void init_p2mesh_context(
+void RectP2MeshSolver::init_p2mesh_context(
     sGridContext_ grid_,
     const sParticlesContext_ particles_
 )
 {
     tl::optional<OverInfo> mb_over;
-    auto over = [&mb_over, &grid_, &particles_](void) -> const OverInfo& {
+    auto over = [&mb_over, &grid_, &particles_, this](void) -> const OverInfo& {
         if (false == mb_over.has_value()) {
-            mb_over = OverInfo::calc(grid_->info.nx, particles_->info.ntotal);
+            mb_over = OverInfo::calc(
+                this->grid_info(grid_).nx,
+                particles_->info.ntotal
+            );
         }
         return mb_over.value();
     };
@@ -395,7 +397,7 @@ void init_p2mesh_context(
     }
 }
 
-void convert_particles_to_grid(
+void RectP2MeshSolver::convert_particles_to_grid(
     const sParticlesContext_ particles_,
     sGridContext_ grid_
 )
@@ -403,7 +405,7 @@ void convert_particles_to_grid(
     spdlog::debug("convert_particles_to_grid");
 	RR::CUDA::CuDeviceSync();
 
-    auto over = OverInfo::calc(grid_->info.nx, particles_->info.ntotal);
+    auto over = OverInfo::calc(grid_info(grid_).nx, particles_->info.ntotal);
 
     init_p2mesh_context(grid_, particles_);
 
@@ -450,12 +452,12 @@ void convert_particles_to_grid(
 
 }
 
-void project_particles_acceleration_on_grid(
+void RectP2MeshSolver::project_particles_acceleration_on_grid(
     const sParticlesContext_ particles_,
     sGridContext_ grid_
 )
 {
-    auto over = OverInfo::calc(grid_->info.nx, particles_->info.ntotal);
+    auto over = OverInfo::calc(grid_info(grid_).nx, particles_->info.ntotal);
 
 	grid_->acc_.set_zero();
 
@@ -467,12 +469,12 @@ void project_particles_acceleration_on_grid(
 	);
 }
 
-void project_particles_grav_on_grid(
+void RectP2MeshSolver::project_particles_grav_on_grid(
     const sParticlesContext_ particles_,
     sGridContext_ grid_
 )
 {
-    auto over = OverInfo::calc(grid_->info.nx, particles_->info.ntotal);
+    auto over = OverInfo::calc(grid_info(grid_).nx, particles_->info.ntotal);
 
     grid_->grav_curr_.set_zero();
 
@@ -484,7 +486,7 @@ void project_particles_grav_on_grid(
 	);
 }
 
-void calc_grav_by_center_of_mass(
+void RectP2MeshSolver::calc_grav_by_center_of_mass(
     rrgsim::common::sGridContext_ grid_,
     real3 center_of_mass,
     real total_mass
@@ -493,7 +495,7 @@ void calc_grav_by_center_of_mass(
     using rrgsim::common::BLOCK_SIZE_IN_3D;
     using rrgsim::common::OverInfo;
 
-    unsigned blocks_count = static_cast<unsigned>(OverInfo::split_into_blocks(grid_->info.nx, BLOCK_SIZE_IN_3D));
+    unsigned blocks_count = static_cast<unsigned>(OverInfo::split_into_blocks(grid_info(grid_).nx, BLOCK_SIZE_IN_3D));
     dim3 threads_per_block{ BLOCK_SIZE_IN_3D, BLOCK_SIZE_IN_3D, BLOCK_SIZE_IN_3D };
     dim3 blocks_per_grid{ blocks_count, blocks_count, blocks_count };
 
@@ -503,6 +505,19 @@ void calc_grav_by_center_of_mass(
         center_of_mass,
         total_mass
     );
+}
+
+const rrgsim::common::RectGridInfo&
+RectP2MeshSolver::grid_info(
+    const rrgsim::common::sGridContext_& grid_
+)
+{
+    if (auto rect_grid_info = std::get_if<rrgsim::common::RectGridInfo>(&grid_->info); rect_grid_info) {
+        return *rect_grid_info;
+    }
+    else {
+        throw std::runtime_error{ "RectP2MeshSolver::grid_info met unexpected grid info variant" };
+    }
 }
 
 } // namespace rrgsim::rect_mesh

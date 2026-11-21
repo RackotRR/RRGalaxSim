@@ -23,11 +23,21 @@ class RectWaveIntegrationSolver : public IntegrationSolver {
         if (false == params.mb_grid_info.has_value()) {
             throw std::runtime_error{ "No grid info " + for_error };
         }
-        RR::CUDA::CuCopyToSymbol(
-            grid_context_->info,
-            rrgsim::common::grid_info_,
-            RR::CUDA::ToDevice
-        );
+
+        if (auto rect_info = std::get_if<rrgsim::common::RectGridInfo>(&params.mb_grid_info.value()); rect_info) {
+            RR::CUDA::CuCopyToSymbol(
+                *rect_info,
+                rrgsim::common::rect_grid_info_,
+                RR::CUDA::ToDevice
+            );
+        }
+        else if (auto sph_info = std::get_if<rrgsim::common::SphGridInfo>(&params.mb_grid_info.value()); sph_info) {
+            RR::CUDA::CuCopyToSymbol(
+                *sph_info,
+                rrgsim::common::sph_grid_info_,
+                RR::CUDA::ToDevice
+            );
+        }
 
         if (false == params.mb_wave_params.has_value()) {
             throw std::runtime_error{ "No wave params " + for_error };
@@ -52,7 +62,7 @@ class RectWaveIntegrationSolver : public IntegrationSolver {
 
     void precalc() override {
         // масса
-        rrgsim::rect_mesh::convert_particles_to_grid(particles_context_, grid_context_);
+        p2mesh_solver->convert_particles_to_grid(particles_context_, grid_context_);
 
         // real3 mass_center = rrgsim::nbody::calc_mass_center(particles_context_);
         // rrgsim::wave::set_boundary_monopole(
@@ -62,11 +72,24 @@ class RectWaveIntegrationSolver : public IntegrationSolver {
         //     grid_info.dx
         // );
 
-        rrgsim::wave::set_boundary_periodic(
-            1.,
-            grid_context_->info,
-            false
-        );
+
+        wave::PeriodicBoundaryParams periodic_boundary;
+        periodic_boundary.keep_extra_dissipative_layer = false;
+        periodic_boundary.total_mass = 1.;
+
+        wave::Params params;
+        params.boundary_params = periodic_boundary;
+        params.grid_info = grid_context_->info;
+        params.mb_initial_grav_params = tl::nullopt;
+        params.wave_params = wave_params;
+
+        wave_solver = wave::make_wave_solver(params);
+        wave_solver->setup(grid_context_);
+        // rrgsim::wave::set_boundary_periodic(
+        //     1.,
+        //     grid_context_->info,
+        //     false
+        // );
 
         // rrgsim::wave::fill_in_initial_grav(
         //     grid_context_,
@@ -74,8 +97,8 @@ class RectWaveIntegrationSolver : public IntegrationSolver {
         //     1.
         // );
 
-        rrgsim::wave::solve_wave_equation(grid_context_, wave_params, wave_params.setup_iterations);
-        rrgsim::rect_mesh::calc_acceleration_field(grid_context_);
+        wave_solver->solve(grid_context_, wave_params.setup_iterations);
+        p2mesh_solver->calc_acceleration_field(grid_context_);
 
         // всё нужно синхронизировать
         particles_grav_is_actual = false;
@@ -84,11 +107,11 @@ class RectWaveIntegrationSolver : public IntegrationSolver {
 
     void sync_particles_and_grid() override {
         if (false == particles_grav_is_actual) {
-            rrgsim::rect_mesh::project_grid_grav_on_particles(grid_context_, particles_context_);
+            mesh2p_solver->project_grid_grav_on_particles(grid_context_, particles_context_);
         }
 
         if (false == particles_acc_is_actual) {
-            rrgsim::rect_mesh::project_grid_acceleration_on_particles(grid_context_, particles_context_);
+            mesh2p_solver->project_grid_acceleration_on_particles(grid_context_, particles_context_);
         }
 
         // всё здесь синхронизировалось
@@ -99,11 +122,11 @@ class RectWaveIntegrationSolver : public IntegrationSolver {
     void calc_step() override {
         rrgsim::nbody::predict_step(particles_context_, sim_params);
 
-        rrgsim::rect_mesh::convert_particles_to_grid(particles_context_, grid_context_);
-        rrgsim::wave::solve_wave_equation(grid_context_, wave_params, wave_params.iterations);
-        rrgsim::rect_mesh::calc_acceleration_field(grid_context_);
+        p2mesh_solver->convert_particles_to_grid(particles_context_, grid_context_);
+        wave_solver->solve(grid_context_, wave_params.iterations);
+        p2mesh_solver->calc_acceleration_field(grid_context_);
 
-        rrgsim::rect_mesh::project_grid_acceleration_on_particles(grid_context_, particles_context_);
+        mesh2p_solver->project_grid_acceleration_on_particles(grid_context_, particles_context_);
         particles_acc_is_actual = true; // ускорение на частицах актуально
         particles_grav_is_actual = false; // частицы сдвинулись, нужно пересчитать
 
@@ -120,6 +143,10 @@ private:
 
     rrgsim::common::sGridContext_ grid_context_;
     rrgsim::common::sParticlesContext_ particles_context_;
+
+    rrgsim::mesh::sP2MeshSolver p2mesh_solver;
+    rrgsim::mesh::sMesh2PSolver mesh2p_solver;
+    rrgsim::wave::sWaveSolver wave_solver;
 };
 
 } // namespace rrgsim::integration

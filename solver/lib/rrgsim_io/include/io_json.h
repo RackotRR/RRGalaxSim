@@ -27,8 +27,8 @@ namespace nlohmann {
         static constexpr const char RECT_NAME[] = "rect";
         static constexpr const char SPH_NAME[] = "sphere";
 
-        void to_json(json& j, const rrgsim::common::GridInfoVariant& s);
-        void from_json(const json& j, rrgsim::common::GridInfoVariant& s);
+        static void to_json(json& j, const rrgsim::common::GridInfoVariant& s);
+        static void from_json(const json& j, rrgsim::common::GridInfoVariant& s);
     };
 } // namespace nlohmann
 

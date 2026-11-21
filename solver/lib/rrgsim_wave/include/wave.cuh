@@ -7,16 +7,16 @@
 
 namespace rrgsim::wave {
 
-    using sWaveCommonSolver = std::shared_ptr<WaveSolver>;
-    inline sWaveCommonSolver make_wave_common_solver(
-        const rrgsim::common::GridInfoVariant& grid_info
+    using sWaveSolver = std::shared_ptr<WaveSolver>;
+    inline sWaveSolver make_wave_solver(
+        const Params& params
     )
     {
-        if (auto rect_grid_info = std::get_if<rrgsim::common::RectGridInfo>(&grid_info); rect_grid_info) {
-            return std::make_shared<rrgsim::wave::rect::WaveRectSolver>(*rect_grid_info);
+        if (auto rect_grid_info = std::get_if<rrgsim::common::RectGridInfo>(&params.grid_info); rect_grid_info) {
+            return std::make_shared<rrgsim::wave::rect::WaveRectSolver>(params);
         }
-        else if (auto sph_grid_info = std::get_if<rrgsim::common::SphGridInfo>(&grid_info); sph_grid_info) {
-            return std::make_shared<rrgsim::wave::sph::WaveSphSolver>(*sph_grid_info);
+        else if (auto sph_grid_info = std::get_if<rrgsim::common::SphGridInfo>(&params.grid_info); sph_grid_info) {
+            return std::make_shared<rrgsim::wave::sph::WaveSphSolver>(params);
         }
         else {
             throw std::runtime_error{ "make_wave_common_solver error: invalid grid info variant" };

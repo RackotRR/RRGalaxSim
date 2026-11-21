@@ -1,11 +1,15 @@
+#include "wave_rect.cuh"
 #include <co_device_utils.cuh>
 #include <co_device_structs.cuh>
+#include <spdlog/spdlog.h>
 
-namespace rrgsim::wave {
+namespace rrgsim::wave::rect {
 	using rrgsim::common::rect_grid_info_;
 	using rrgsim::common::wave_params_;
 	using rrgsim::common::bc_params_;
 	using rrgsim::common::distance;
+    using rrgsim::common::BoundaryParams;
+    using rrgsim::common::BoundaryType;
 
 __device__ __forceinline__ real coord(int i) {
     return rect_grid_info_.domain_min + i * rect_grid_info_.dx;
@@ -95,7 +99,7 @@ __device__ real radiative_boundary(const real* __restrict__ phi, int ix, int iy,
     return psi_new + monopole_phi(make_real3(x, y, z));
 }
 
-__global__ void wave_diss_iteration_rect(
+__global__ void wave_diss_iteration_rect_(
     real* __restrict__ phi_new,
     const real* __restrict__ phi,
     const real* __restrict__ phi_old,
@@ -184,4 +188,96 @@ __global__ void wave_diss_iteration_rect(
         + f * K_F;
 }
 
-} // namespace rrgsim::wave
+__global__ void fill_in_initial_grav_(
+    real* grav,
+    real3 mass_center,
+    real mass_value
+)
+{
+	const int NX = rect_grid_info_.nx;
+	const real DX = rect_grid_info_.dx;
+
+    int ix = threadIdx.x + blockIdx.x * blockDim.x;
+    int iy = threadIdx.y + blockIdx.y * blockDim.y;
+    int iz = threadIdx.z + blockIdx.z * blockDim.z;
+    if (ix >= NX || iy >= NX || iz >= NX) return;
+
+    real3 pos = make_real3(
+        rect_grid_info_.domain_min + ix * DX,
+        rect_grid_info_.domain_min + iy * DX,
+        rect_grid_info_.domain_min + iz * DX
+    );
+
+    const real G = 1.;
+    const real softening = 0.01;
+
+    grav[AT(ix, iy, iz)] = -G * mass_value / (rrgsim::common::distance(pos, mass_center) + softening);
+}
+
+
+WaveRectSolver::WaveRectSolver(Params params)
+    : WaveSolver{ std::move(params) }
+{
+    using rrgsim::common::BLOCK_SIZE_IN_3D;
+    using rrgsim::common::OverInfo;
+
+    const auto& rect_info = std::get<rrgsim::common::RectGridInfo>(params.grid_info);
+
+    unsigned threads_count = BLOCK_SIZE_IN_3D;
+    unsigned blocks_count = static_cast<unsigned>(OverInfo::split_into_blocks(rect_info.nx, BLOCK_SIZE_IN_3D));
+
+    this->threads_per_block = dim3{ threads_count, threads_count, threads_count };
+    this->blocks_per_grid = dim3{ blocks_count, blocks_count, blocks_count };
+}
+
+void WaveRectSolver::fill_in_initial_grav(
+    rrgsim::common::sGridContext_ grid_,
+    const NewtonianGravParams& initial_grav_params
+) const {
+    spdlog::debug("fill_in_initial_grav");
+
+    RR::CUDA::CuCall(fill_in_initial_grav_, blocks_per_grid, threads_per_block) (
+        grid_->grav_curr_,
+        initial_grav_params.mass_center,
+        initial_grav_params.mass_value
+    );
+
+    RR::CUDA::CuCopyFromTo(
+        grid_->grav_curr_,
+        grid_->grav_prev_,
+        RR::CUDA::DeviceToDevice
+    );
+}
+
+void WaveRectSolver::setup(
+    rrgsim::common::sGridContext_ grid_
+) {
+    // выводим шаг по времени из условия CFL
+    const auto& rect_grid_info = std::get<rrgsim::common::RectGridInfo>(params.grid_info);
+    real dx = rect_grid_info.dx;
+    real c = params.wave_params.wave_speed;
+    constexpr real DIM = 3;
+    params.wave_params.dt = 0.5 * dx / (c * std::sqrt(DIM));
+    spdlog::trace("WaveRectSolver::setup wave_params.dt = {}", params.wave_params.dt);
+    RR::CUDA::CuCopyToSymbol(params.wave_params, wave_params_, RR::CUDA::ToDevice);
+
+    this->params.mb_initial_grav_params
+        .transform(
+            [this, grid_](const NewtonianGravParams& initial_grav_params) {
+                this->fill_in_initial_grav(grid_, initial_grav_params);
+            }
+        );
+
+}
+
+void WaveRectSolver::step(rrgsim::common::sGridContext_ grid_) {
+    RR::CUDA::CuCall(wave_diss_iteration_rect_, blocks_per_grid, threads_per_block) (
+        grid_->grav_next_,
+        grid_->grav_curr_,
+        grid_->grav_prev_,
+        grid_->mass_
+    );
+}
+
+
+} // namespace rrgsim::wave::rect

@@ -1,33 +1,26 @@
 #pragma once
-#include <co_device_structs.cuh>
-#include <co_grid_context.cuh>
+#include <memory>
+#include <stdexcept>
+#include "wave_common.cuh"
+#include "wave_rect.cuh"
+#include "wave_sph.cuh"
 
 namespace rrgsim::wave {
 
-    void solve_wave_equation(
-        rrgsim::common::sGridContext_ grid_,
-        rrgsim::common::WaveParams wave_params,
-        int max_iterations
-    );
+    using sWaveCommonSolver = std::shared_ptr<WaveSolver>;
+    inline sWaveCommonSolver make_wave_common_solver(
+        const rrgsim::common::GridInfoVariant& grid_info
+    )
+    {
+        if (auto rect_grid_info = std::get_if<rrgsim::common::RectGridInfo>(&grid_info); rect_grid_info) {
+            return std::make_shared<rrgsim::wave::rect::WaveRectSolver>(*rect_grid_info);
+        }
+        else if (auto sph_grid_info = std::get_if<rrgsim::common::SphGridInfo>(&grid_info); sph_grid_info) {
+            return std::make_shared<rrgsim::wave::sph::WaveSphSolver>(*sph_grid_info);
+        }
+        else {
+            throw std::runtime_error{ "make_wave_common_solver error: invalid grid info variant" };
+        }
+    }
 
-    void fill_in_initial_grav(
-        rrgsim::common::sGridContext_ grid_,
-        real3 mass_center,
-        real mass_value
-    );
-
-    /// Асимптотические ГУ: масса и центр масс подаются на вход
-    void set_boundary_monopole(
-        real total_mass,
-        const real3& center_of_mass,
-        bool radiative,
-        real dx
-    );
-
-    /// Периодические ГУ: средняя плотность считается по сетке
-    void set_boundary_periodic(
-        real total_mass,
-        const rrgsim::common::GridInfoVariant& g,
-        bool keep_layer = false
-    );
 } // namespace rrgsim::wave

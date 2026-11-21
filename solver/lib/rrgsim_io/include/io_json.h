@@ -43,10 +43,6 @@ namespace rrgsim::io {
     void to_json(nlohmann::json& j, const IniGalaxyData& galaxy_data);
     void from_json(const nlohmann::json& j, IniGalaxyData& galaxy_data);
 
-    /// @brief Валидация и дополнение зависимых полей
-    /// @param params Параметры из json
-    void validate_dependent_fields(ParsedParams& params);
-
     tl::expected<ParsedParams, std::string>
     parse_params_json(const fs::path& path);
 } // namespace rrgsim::io

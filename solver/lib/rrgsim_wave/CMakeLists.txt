@@ -3,7 +3,9 @@ project(rrgsim_wave LANGUAGES CXX CUDA)
 
 # библиотека с общим кодом
 add_library(${PROJECT_NAME} STATIC
-    src/wave.cu
+    src/wave_common.cu
+    src/wave_rect.cu
+    src/wave_sph.cu
     src/wave_steady_checker.cu
 )
 
@@ -17,4 +19,5 @@ target_include_directories(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
     PUBLIC
         rrgsim_common
+        rrgsim_mesh
 )

@@ -226,24 +226,6 @@ namespace rrgsim::io {
         }
     }
 
-    void validate_dependent_fields(ParsedParams& parsed) {
-        if (parsed.mb_grid_info && parsed.mb_wave_params) {
-            parsed.sim_params.use_wave_model = true;
-
-            // выводим шаг по времени из условия CFL
-            real dx = parsed.mb_grid_info->dx;
-            real c = parsed.mb_wave_params->wave_speed;
-            constexpr real DIM = 3;
-            parsed.mb_wave_params->dt = 0.5 * dx / (c * std::sqrt(DIM));
-        }
-
-        spdlog::debug(
-            parsed.sim_params.use_wave_model
-                ? "Use wave model"
-                : "Don't use wave model"
-        );
-    }
-
     tl::expected<ParsedParams, std::string>
     parse_params_json(const fs::path& path) {
         try {
@@ -283,7 +265,6 @@ namespace rrgsim::io {
                 );
 
             if (succeed) {
-                validate_dependent_fields(parsed);
                 spdlog::info("Params json parsed successfully");
                 return parsed;
             }

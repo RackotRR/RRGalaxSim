@@ -48,9 +48,13 @@ struct SphGridInfo {
 
     /// @brief Показатель степени для проекции радиуса (r = R*x^p)
     double proj_r_degree;
+
+    // theta = pi/2 + arcsin(2/pi * x - 1) <-- проекция
+    // более того, для радиуса и широты используем staggered grid (смещение на полшага)
+    // долгота с целым шагом
 };
 
-using GridInfoVariant = std::variant<std::monostate, RectGridInfo, SphGridInfo>;
+using GridInfoVariant = std::variant<RectGridInfo, SphGridInfo>;
 
 /// @brief Параметры волновой модели
 struct WaveParams {

@@ -1,6 +1,8 @@
 #pragma once
 #include "co_types.h"
 
+namespace rrgsim::common {
+
 enum class BoundaryType : int {
     ZeroDirichlet     = 0, // старое поведение: phi = 0
     Periodic          = 1, // периодические
@@ -25,3 +27,5 @@ struct BoundaryParams {
     /// @brief 1 — оставить поглощающий слой в периодическом режиме
     int periodic_keep_layer;
 };
+
+} // namespace rrgsim::common

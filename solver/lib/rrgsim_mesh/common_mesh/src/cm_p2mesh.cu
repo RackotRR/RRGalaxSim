@@ -121,4 +121,57 @@ void P2MeshSolver::init_p2mesh_context(
     }
 }
 
+
+void P2MeshSolver::convert_particles_to_grid(
+    const sParticlesContext_ particles_,
+    sGridContext_ grid_
+)
+{
+    spdlog::debug("convert_particles_to_grid");
+	RR::CUDA::CuDeviceSync();
+
+    auto over = OverInfo::calc(
+        rrgsim::common::get_grid_size(grid_->info),
+        particles_->info.ntotal
+    );
+
+    init_p2mesh_context(grid_, particles_);
+
+	grid_->particles_cell_info_.set_zero();
+	grid_->cell_info_.set_zero();
+	grid_->cell_particles_count_.set_zero();
+	grid_->particles_in_block_.set_zero();
+	grid_->mass_.set_zero();
+
+    assign_particles_to_cells(over, particles_, grid_);
+
+    spdlog::trace("compute_prefix_sums_({}, {})", over.cells, over.blocks);
+    RR::CUDA::CuCall(detail::compute_prefix_sums_, over.cells, over.blocks) (
+        grid_->cell_info_,
+        grid_->particles_in_block_,
+        over.num_cells
+    );
+
+    spdlog::trace("adjust_global_prefix_sums_({}, {})", over.cells, over.blocks);
+    RR::CUDA::CuCall(detail::adjust_global_prefix_sums_, over.cells, over.blocks) (
+        grid_->cell_info_,
+        grid_->particles_in_block_,
+        over.num_cells
+    );
+
+	// RR::CUDA::CuCall(deposit_cell_mass_NGP_, over.particles, over.blocks) (
+	// 	particles_->mass_,
+	// 	grid_->particles_cell_info_,
+	// 	grid_->mass_
+	// );
+
+    spdlog::trace("deposit_cell_mass_CIC_({}, {})", over.particles, over.blocks);
+	RR::CUDA::CuCall(deposit_cell_mass_CIC_, over.particles, over.blocks) (
+		particles_->pos_,
+		particles_->mass_,
+		grid_->mass_
+	);
+
+}
+
 } // namespace rrgsim::mesh

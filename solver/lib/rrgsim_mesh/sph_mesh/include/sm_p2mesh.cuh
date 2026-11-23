@@ -2,13 +2,15 @@
 #include <cm_p2mesh.cuh>
 
 namespace rrgsim::mesh::sph {
+    using rrgsim::common::sph_grid_info_;
+    using rrgsim::common::SphGridInfo;
 
     class SphP2MeshSolver : public P2MeshSolver {
     public:
-        void convert_particles_to_grid(
-            const sParticlesContext_ particles_,
-            sGridContext_ grid_
-        ) override;
+
+        const SphGridInfo& grid_info(
+            const sGridContext_& grid_
+        );
 
         void project_particles_acceleration_on_grid(
             const sParticlesContext_ particles_context_,
@@ -25,15 +27,25 @@ namespace rrgsim::mesh::sph {
         ) override;
 
         void calc_grav_by_center_of_mass(
-            rrgsim::common::sGridContext_ grid_,
+            sGridContext_ grid_,
             real3 center_of_mass,
             real total_mass
         ) override;
 
-    public:
-        const rrgsim::common::SphGridInfo& grid_info(
-            const rrgsim::common::sGridContext_& grid_
-        );
+    protected:
+
+        void assign_particles_to_cells(
+            const rrgsim::common::OverInfo& over,
+            const sParticlesContext_ particles_context_,
+            sGridContext_ grid_context_
+        ) override;
     };
+
+    inline __device__ __forceinline__
+    size_t cell_index(int i, int j, int k) {
+        return (size_t)i
+            +  (size_t)sph_grid_info_.nr * (size_t)j
+            +  (size_t)sph_grid_info_.nr * sph_grid_info_.nt * (size_t)k;
+    }
 
 } // namespace rrgsim::mesh::sph

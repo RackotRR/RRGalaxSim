@@ -6,16 +6,17 @@ namespace rrgsim::mesh {
     using common::sGridContext_;
     using common::sParticlesContext_;
 
-    struct P2MeshSolver {
+    class P2MeshSolver {
+    public:
         void init_p2mesh_context(
             sGridContext_ grid_,
             const sParticlesContext_ particles_
         );
 
-        virtual void convert_particles_to_grid(
+        void convert_particles_to_grid(
             const sParticlesContext_ particles_,
             sGridContext_ grid_
-        ) = 0;
+        );
 
         virtual void project_particles_acceleration_on_grid(
             const sParticlesContext_ particles_context_,
@@ -32,9 +33,16 @@ namespace rrgsim::mesh {
         ) = 0;
 
         virtual void calc_grav_by_center_of_mass(
-            rrgsim::common::sGridContext_ grid_,
+            sGridContext_ grid_,
             real3 center_of_mass,
             real total_mass
+        ) = 0;
+
+    protected:
+        virtual void assign_particles_to_cells(
+            const rrgsim::common::OverInfo& over,
+            const sParticlesContext_ particles_context_,
+            sGridContext_ grid_context
         ) = 0;
     };
 

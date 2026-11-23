@@ -11,6 +11,8 @@ namespace rrgsim::mesh {
     using rrgsim::common::SphGridInfo;
 
     struct MeshHelper {
+        // глобальный индекс ячейки
+        virtual size_t cell_index(int i, int j, int k) const = 0;
 
         // моделируемый объём
         virtual real calc_volume() const = 0;
@@ -24,6 +26,12 @@ namespace rrgsim::mesh {
         RectMeshHelper(const RectGridInfo& info)
             : rect_info{ info }
         {
+        }
+
+        size_t cell_index(int i, int j, int k) const override {
+            return (size_t)i
+                + (size_t)rect_info.nx * (size_t)j
+                + (size_t)(rect_info.nx * rect_info.nx) * (size_t)k;
         }
 
         real calc_volume() const override {
@@ -42,6 +50,16 @@ namespace rrgsim::mesh {
         SphMeshHelper(const SphGridInfo& info)
             : sph_info{ info }
         {
+        }
+
+        // линейный порядок:
+        // i (радиус) — самый быстрый,
+        // j (широта, colatitude),
+        // k (долгота) — самый медленный.
+        size_t cell_index(int i, int j, int k) const override {
+            return (size_t)i
+                + (size_t)sph_info.nr * (size_t)j
+                + (size_t)(sph_info.nr * sph_info.nt) * (size_t)k;
         }
 
         real calc_volume() const override {

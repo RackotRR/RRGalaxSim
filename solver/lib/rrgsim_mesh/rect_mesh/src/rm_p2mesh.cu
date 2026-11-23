@@ -21,7 +21,7 @@ using rrgsim::common::OverInfo;
 using RR::CUDA::CuDarray;
 
 namespace {
-    __global__ void assign_particles_to_cells_(
+    __global__ void assign_particles_to_cells_rect_(
         const real3* __restrict__ particles_pos,
         ParticleCellInfo* __restrict__ particles_cell_info,
         CellInfo* __restrict__ cellInfo,
@@ -271,6 +271,21 @@ namespace {
 } // namespace
 
 
+void RectP2MeshSolver::assign_particles_to_cells(
+    const rrgsim::common::OverInfo& over,
+    const sParticlesContext_ particles_,
+    sGridContext_ grid_
+)
+{
+    spdlog::trace("assign_particles_to_cells_rect_({}, {})", over.particles, over.blocks);
+    RR::CUDA::CuCall(assign_particles_to_cells_rect_, over.particles, over.blocks) (
+        particles_->pos_,
+        grid_->particles_cell_info_,
+        grid_->cell_info_,
+        grid_->cell_particles_count_
+    );
+}
+
 void RectP2MeshSolver::calc_acceleration_field(
     const sGridContext_ grid_
 )
@@ -288,65 +303,6 @@ void RectP2MeshSolver::calc_acceleration_field(
         grid_->acc_,
         grid_->grav_curr_
     );
-}
-
-
-void RectP2MeshSolver::convert_particles_to_grid(
-    const sParticlesContext_ particles_,
-    sGridContext_ grid_
-)
-{
-    spdlog::debug("convert_particles_to_grid");
-	RR::CUDA::CuDeviceSync();
-
-    auto over = OverInfo::calc(
-        rrgsim::common::get_grid_size(grid_->info),
-        particles_->info.ntotal
-    );
-
-    init_p2mesh_context(grid_, particles_);
-
-	grid_->particles_cell_info_.set_zero();
-	grid_->cell_info_.set_zero();
-	grid_->cell_particles_count_.set_zero();
-	grid_->particles_in_block_.set_zero();
-	grid_->mass_.set_zero();
-
-    spdlog::trace("assign_particles_to_cells_({}, {})", over.particles, over.blocks);
-    RR::CUDA::CuCall(assign_particles_to_cells_, over.particles, over.blocks) (
-        particles_->pos_,
-        grid_->particles_cell_info_,
-        grid_->cell_info_,
-        grid_->cell_particles_count_
-    );
-
-    spdlog::trace("compute_prefix_sums_({}, {})", over.cells, over.blocks);
-    RR::CUDA::CuCall(detail::compute_prefix_sums_, over.cells, over.blocks) (
-        grid_->cell_info_,
-        grid_->particles_in_block_,
-        over.num_cells
-    );
-
-    spdlog::trace("adjust_global_prefix_sums_({}, {})", over.cells, over.blocks);
-    RR::CUDA::CuCall(detail::adjust_global_prefix_sums_, over.cells, over.blocks) (
-        grid_->cell_info_,
-        grid_->particles_in_block_,
-        over.num_cells
-    );
-
-	// RR::CUDA::CuCall(deposit_cell_mass_NGP_, over.particles, over.blocks) (
-	// 	particles_->mass_,
-	// 	grid_->particles_cell_info_,
-	// 	grid_->mass_
-	// );
-
-    spdlog::trace("deposit_cell_mass_CIC_({}, {})", over.particles, over.blocks);
-	RR::CUDA::CuCall(deposit_cell_mass_CIC_, over.particles, over.blocks) (
-		particles_->pos_,
-		particles_->mass_,
-		grid_->mass_
-	);
-
 }
 
 void RectP2MeshSolver::project_particles_acceleration_on_grid(

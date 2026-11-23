@@ -7,6 +7,11 @@ namespace rrgsim::mesh {
     using common::sParticlesContext_;
 
     struct P2MeshSolver {
+        void init_p2mesh_context(
+            sGridContext_ grid_,
+            const sParticlesContext_ particles_
+        );
+
         virtual void convert_particles_to_grid(
             const sParticlesContext_ particles_,
             sGridContext_ grid_
@@ -32,5 +37,22 @@ namespace rrgsim::mesh {
             real total_mass
         ) = 0;
     };
+
+    namespace detail {
+
+        __global__ void compute_prefix_sums_(
+            rrgsim::common::detail::CellInfo* __restrict__ cellInfo,
+            int* __restrict__ maxPBC,
+            const int numCells
+        );
+
+
+        __global__ void adjust_global_prefix_sums_(
+            rrgsim::common::detail::CellInfo* __restrict__ cellInfo,
+            const int* __restrict__ maxPBC,
+            const int numCells
+        );
+
+    } // namespace detail
 
 } // namespace rrgsim::mesh

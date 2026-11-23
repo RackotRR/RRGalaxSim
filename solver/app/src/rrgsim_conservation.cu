@@ -378,21 +378,27 @@ void print_sample_particle(
     }
 }
 void print_acc_projection(
-    rrgsim::common::sGridContext grid_context
+    rrgsim::common::sGridContext rect_grid_context
 )
 {
     auto& handler = rrgsim::io::IOHandler::instance();
-    size_t NX = grid_context->info.nx;
+
+    if (false == std::holds_alternative<rrgsim::common::RectGridInfo>(rect_grid_context->info)) {
+        throw std::runtime_error{ "print_acc_projection expected rect grid info" };
+    }
+
+    const auto& rect_info = std::get<rrgsim::common::RectGridInfo>(rect_grid_context->info);
+    size_t NX = rect_info.nx;
 
     tl::optional<std::string> subdir = "a_grid";
 
     for (size_t xi = 0; xi < NX; ++xi) {
-        rrgsim::io::TagValue x{ "x", grid_context->info.domain_min + grid_context->info.dx * xi };
-        rrgsim::io::TagValue ax{ "ax", grid_context->acc[AT(xi, NX / 2, NX / 2)].x };
-        rrgsim::io::TagValue ay{ "ay", grid_context->acc[AT(xi, NX / 2, NX / 2)].y };
-        rrgsim::io::TagValue az{ "az", grid_context->acc[AT(xi, NX / 2, NX / 2)].z };
+        rrgsim::io::TagValue x{ "x", rect_info.domain_min + rect_info.dx * xi };
+        rrgsim::io::TagValue ax{ "ax", rect_grid_context->acc[AT(xi, NX / 2, NX / 2)].x };
+        rrgsim::io::TagValue ay{ "ay", rect_grid_context->acc[AT(xi, NX / 2, NX / 2)].y };
+        rrgsim::io::TagValue az{ "az", rect_grid_context->acc[AT(xi, NX / 2, NX / 2)].z };
         handler.append_table(
-            fmt::format("a_grid_center_{:.08f}", grid_context->time),
+            fmt::format("a_grid_center_{:.08f}", rect_grid_context->time),
             { x, ax, ay, az },
             subdir
         );
@@ -400,21 +406,27 @@ void print_acc_projection(
 }
 
 void print_grav_projection(
-    rrgsim::common::sGridContext grid_context
+    rrgsim::common::sGridContext rect_grid_context
 )
 {
     auto& handler = rrgsim::io::IOHandler::instance();
-    size_t NX = grid_context->info.nx;
+
+    if (false == std::holds_alternative<rrgsim::common::RectGridInfo>(rect_grid_context->info)) {
+        throw std::runtime_error{ "print_acc_projection expected rect grid info" };
+    }
+
+    const auto& rect_info = std::get<rrgsim::common::RectGridInfo>(rect_grid_context->info);
+    size_t NX = rect_info.nx;
 
     tl::optional<std::string> subdir = "grav_grid";
 
     for (size_t i = 0; i < NX; ++i) {
-        rrgsim::io::TagValue r{ "r", grid_context->info.domain_min + grid_context->info.dx * i };
-        rrgsim::io::TagValue gx{ "gx", grid_context->grav[AT(i, NX / 2, NX / 2)] };
-        rrgsim::io::TagValue gy{ "gy", grid_context->grav[AT(NX / 2, i, NX / 2)] };
-        rrgsim::io::TagValue gz{ "gz", grid_context->grav[AT(NX / 2, NX / 2, i)] };
+        rrgsim::io::TagValue r{ "r", rect_info.domain_min + rect_info.dx * i };
+        rrgsim::io::TagValue gx{ "gx", rect_grid_context->grav[AT(i, NX / 2, NX / 2)] };
+        rrgsim::io::TagValue gy{ "gy", rect_grid_context->grav[AT(NX / 2, i, NX / 2)] };
+        rrgsim::io::TagValue gz{ "gz", rect_grid_context->grav[AT(NX / 2, NX / 2, i)] };
         handler.append_table(
-            fmt::format("grav_axis_center_{:.10f}", grid_context->time),
+            fmt::format("grav_axis_center_{:.10f}", rect_grid_context->time),
             { r, gx, gy, gz },
             subdir
         );
@@ -422,21 +434,27 @@ void print_grav_projection(
 }
 
 void print_mass_projection(
-    rrgsim::common::sGridContext grid_context
+    rrgsim::common::sGridContext rect_grid_context
 )
 {
     auto& handler = rrgsim::io::IOHandler::instance();
-    size_t NX = grid_context->info.nx;
+
+    if (false == std::holds_alternative<rrgsim::common::RectGridInfo>(rect_grid_context->info)) {
+        throw std::runtime_error{ "print_acc_projection expected rect grid info" };
+    }
+
+    const auto& rect_info = std::get<rrgsim::common::RectGridInfo>(rect_grid_context->info);
+    size_t NX = rect_info.nx;
 
     tl::optional<std::string> subdir = "mass_grid";
 
     for (size_t i = 0; i < NX; ++i) {
-        rrgsim::io::TagValue r{ "r", grid_context->info.domain_min + grid_context->info.dx * i };
-        rrgsim::io::TagValue mx{ "mx", grid_context->mass[AT(i, NX / 2, NX / 2)] };
-        rrgsim::io::TagValue my{ "my", grid_context->mass[AT(NX / 2, i, NX / 2)] };
-        rrgsim::io::TagValue mz{ "mz", grid_context->mass[AT(NX / 2, NX / 2, i)] };
+        rrgsim::io::TagValue r{ "r", rect_info.domain_min + rect_info.dx * i };
+        rrgsim::io::TagValue mx{ "mx", rect_grid_context->mass[AT(i, NX / 2, NX / 2)] };
+        rrgsim::io::TagValue my{ "my", rect_grid_context->mass[AT(NX / 2, i, NX / 2)] };
+        rrgsim::io::TagValue mz{ "mz", rect_grid_context->mass[AT(NX / 2, NX / 2, i)] };
         handler.append_table(
-            fmt::format("mass_axis_center_{:.10f}", grid_context->time),
+            fmt::format("mass_axis_center_{:.10f}", rect_grid_context->time),
             { r, mx, my, mz },
             subdir
         );

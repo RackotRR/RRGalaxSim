@@ -2,14 +2,6 @@
 
 namespace rrgsim::mesh::sph {
 
-void SphP2MeshSolver::init_p2mesh_context(
-    sGridContext_ grid_,
-    const sParticlesContext_ particles_
-)
-{
-    throw std::runtime_error{ "Not implemented" };
-}
-
 void SphP2MeshSolver::convert_particles_to_grid(
     const sParticlesContext_ particles_,
     sGridContext_ grid_

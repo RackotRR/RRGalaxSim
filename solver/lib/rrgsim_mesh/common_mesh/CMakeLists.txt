@@ -2,14 +2,16 @@ cmake_minimum_required(VERSION 3.29)
 project(rrgsim_common_mesh LANGUAGES CXX CUDA)
 
 # библиотека с общим кодом
-add_library(${PROJECT_NAME} INTERFACE)
+add_library(${PROJECT_NAME} STATIC
+    src/cm_p2mesh.cu
+)
 
 target_include_directories(${PROJECT_NAME}
-    INTERFACE
+    PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
 target_link_libraries(${PROJECT_NAME}
-    INTERFACE
+    PUBLIC
         rrgsim_common
 )

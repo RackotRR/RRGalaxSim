@@ -35,17 +35,17 @@ namespace {
         // Вычисление индексов ячейки
         int NX = rect_grid_info_.nx;
         int ix = rrgsim::common::clamp(
-            (int)((p.x - rect_grid_info_.domain_min) / rect_grid_info_.dx),
-            (int)0,
-            (int)(NX - 1));
+            static_cast<int>((p.x - rect_grid_info_.domain_min) / rect_grid_info_.dx),
+            static_cast<int>(0),
+            static_cast<int>(NX - 1));
         int iy = rrgsim::common::clamp(
-            (int)((p.y - rect_grid_info_.domain_min) / rect_grid_info_.dx),
-            (int)0,
-            (int)(NX - 1));
+            static_cast<int>((p.y - rect_grid_info_.domain_min) / rect_grid_info_.dx),
+            static_cast<int>(0),
+            static_cast<int>(NX - 1));
         int iz = rrgsim::common::clamp(
-            (int)((p.z - rect_grid_info_.domain_min) / rect_grid_info_.dx),
-            (int)0,
-            (int)(NX - 1));
+            static_cast<int>((p.z - rect_grid_info_.domain_min) / rect_grid_info_.dx),
+            static_cast<int>(0),
+            static_cast<int>(NX - 1));
 
         // Линейный индекс ячейки (Morton-подобный порядок для пространственной локальности)
         // Используем чередование битов для лучшей когерентности
@@ -62,68 +62,6 @@ namespace {
 
         // Атомарно обновляем количество частиц в ячейке
         atomicAdd(&cellInfo[i_cell].count, 1);
-    }
-
-    __global__ void compute_prefix_sums_(
-        CellInfo* __restrict__ cellInfo,
-        int* __restrict__ maxPBC,
-        const int numCells
-    )
-    {
-        __shared__ int shared[BLOCK_SIZE];
-        __shared__ int sharedPrev[BLOCK_SIZE];
-
-        int i_cell = threadIdx.x + blockIdx.x * blockDim.x;
-        int i_local = threadIdx.x;
-        int i_block = blockIdx.x;
-
-        // Загружаем количество частиц в ячейке
-        if (i_cell >= numCells) {
-            shared[i_local] = 0;
-            sharedPrev[i_local] = 0;
-        }
-        else {
-            int count = cellInfo[i_cell].count;
-            shared[i_local]     = count;
-            sharedPrev[i_local] = count;
-        }
-
-        __syncthreads();
-        // Каскадное суммирование (параллельное сканирование)
-        for (int stride = 1; stride < BLOCK_SIZE; stride <<= 1) {
-            if (i_local + stride < BLOCK_SIZE) {
-                shared[i_local + stride] += sharedPrev[i_local];
-            }
-            __syncthreads();
-
-            // Обновляем предыдущие значения
-            sharedPrev[i_local] = shared[i_local];
-            __syncthreads();
-        }
-
-        // Первый поток в блоке сохраняет общую сумму блока
-        if (i_local == 0) {
-            int particles_in_block = shared[BLOCK_SIZE - 1];
-            for (int i = i_block; i < gridDim.x; ++i) {
-                atomicAdd(&(maxPBC[i]), particles_in_block);
-            }
-        }
-    }
-
-    __global__ void adjust_global_prefix_sums_(
-        CellInfo* __restrict__ cellInfo,
-        const int* __restrict__ maxPBC,
-        const int numCells
-    )
-    {
-        int i_cell = threadIdx.x + blockIdx.x * blockDim.x;
-        int i_block = blockIdx.x;
-        if (i_cell >= numCells) return;
-
-        // Добавляем сумму всех предыдущих блоков
-        if (i_block > 0) {
-            cellInfo[i_cell].start_id += maxPBC[i_block - 1];
-        }
     }
 
     __global__ void deposit_cell_mass_NGP_(
@@ -352,50 +290,6 @@ void RectP2MeshSolver::calc_acceleration_field(
     );
 }
 
-void RectP2MeshSolver::init_p2mesh_context(
-    sGridContext_ grid_,
-    const sParticlesContext_ particles_
-)
-{
-    tl::optional<OverInfo> mb_over;
-    auto over = [&mb_over, &grid_, &particles_, this](void) -> const OverInfo& {
-        if (false == mb_over.has_value()) {
-            mb_over = OverInfo::calc(
-                this->grid_info(grid_).nx,
-                particles_->info.ntotal
-            );
-        }
-        return mb_over.value();
-    };
-
-    if (nullptr == grid_->particles_cell_info_) {
-        spdlog::trace("init particles_cell_info_[{}]", over().num_particles);
-        grid_->particles_cell_info_ = CuDarray<ParticleCellInfo>(over().num_particles);
-        spdlog::trace("allocated: {}", CuDarray<real>::get_total_allocated_mb());
-    }
-    if (nullptr == grid_->cell_info_) {
-        spdlog::trace("init cell_info_[{}]", over().num_cells);
-        grid_->cell_info_ = CuDarray<CellInfo>(over().num_cells);
-        spdlog::trace("allocated: {}", CuDarray<real>::get_total_allocated_mb());
-    }
-    if (nullptr == grid_->cell_particles_count_) {
-        spdlog::trace("init cell_particles_count_[{}]", over().num_cells);
-        grid_->cell_particles_count_ = CuDarray<int>(over().num_cells);
-        spdlog::trace("allocated: {}", CuDarray<real>::get_total_allocated_mb());
-    }
-    if (nullptr == grid_->particles_in_block_) {
-        spdlog::trace("init particles_in_block_[{}]", over().num_cell_blocks);
-        grid_->particles_in_block_ = CuDarray<int>(over().num_cell_blocks);
-        spdlog::trace("allocated: {}", CuDarray<real>::get_total_allocated_mb());
-    }
-
-    if (mb_over) {
-        spdlog::info(
-            "init_p2mesh_context: GPU memory occupied now - {} MB",
-            CuDarray<real>::get_total_allocated_mb()
-        );
-    }
-}
 
 void RectP2MeshSolver::convert_particles_to_grid(
     const sParticlesContext_ particles_,
@@ -405,7 +299,10 @@ void RectP2MeshSolver::convert_particles_to_grid(
     spdlog::debug("convert_particles_to_grid");
 	RR::CUDA::CuDeviceSync();
 
-    auto over = OverInfo::calc(grid_info(grid_).nx, particles_->info.ntotal);
+    auto over = OverInfo::calc(
+        rrgsim::common::get_grid_size(grid_->info),
+        particles_->info.ntotal
+    );
 
     init_p2mesh_context(grid_, particles_);
 
@@ -424,14 +321,14 @@ void RectP2MeshSolver::convert_particles_to_grid(
     );
 
     spdlog::trace("compute_prefix_sums_({}, {})", over.cells, over.blocks);
-    RR::CUDA::CuCall(compute_prefix_sums_, over.cells, over.blocks) (
+    RR::CUDA::CuCall(detail::compute_prefix_sums_, over.cells, over.blocks) (
         grid_->cell_info_,
         grid_->particles_in_block_,
         over.num_cells
     );
 
     spdlog::trace("adjust_global_prefix_sums_({}, {})", over.cells, over.blocks);
-    RR::CUDA::CuCall(adjust_global_prefix_sums_, over.cells, over.blocks) (
+    RR::CUDA::CuCall(detail::adjust_global_prefix_sums_, over.cells, over.blocks) (
         grid_->cell_info_,
         grid_->particles_in_block_,
         over.num_cells
@@ -457,7 +354,10 @@ void RectP2MeshSolver::project_particles_acceleration_on_grid(
     sGridContext_ grid_
 )
 {
-    auto over = OverInfo::calc(grid_info(grid_).nx, particles_->info.ntotal);
+    auto over = OverInfo::calc(
+        rrgsim::common::get_grid_size(grid_->info),
+        particles_->info.ntotal
+    );
 
 	grid_->acc_.set_zero();
 
@@ -474,7 +374,10 @@ void RectP2MeshSolver::project_particles_grav_on_grid(
     sGridContext_ grid_
 )
 {
-    auto over = OverInfo::calc(grid_info(grid_).nx, particles_->info.ntotal);
+    auto over = OverInfo::calc(
+        rrgsim::common::get_grid_size(grid_->info),
+        particles_->info.ntotal
+    );
 
     grid_->grav_curr_.set_zero();
 

@@ -106,9 +106,9 @@ public:
         return (ntotal + block_size - 1) / block_size;
     }
 
-    static OverInfo calc(int grid_nx, int particles_count) {
+    static OverInfo calc(int grid_total_size, int particles_count) {
         OverInfo over;
-        over.num_cells = grid_nx * grid_nx * grid_nx;
+        over.num_cells = grid_total_size;
         over.num_particles = particles_count;
         over.num_cell_blocks = split_into_blocks(over.num_cells, BLOCK_SIZE);
         over.num_particle_blocks = split_into_blocks(over.num_particles, BLOCK_SIZE);

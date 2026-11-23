@@ -34,12 +34,6 @@ namespace rrgsim::mesh::rect {
         const rrgsim::common::RectGridInfo& grid_info(
             const rrgsim::common::sGridContext_& grid_
         );
-
-    private:
-        void init_p2mesh_context(
-            sGridContext_ grid_,
-            const sParticlesContext_ particles_
-        );
     };
 
 } // namespace rrgsim::mesh::rect

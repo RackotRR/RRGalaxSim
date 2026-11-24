@@ -234,6 +234,126 @@ namespace {
             atomicAdd(&cell_real3[index].z, v.z * weight);
         }
     }
+
+    __device__ __forceinline__ real cell_center_r(int i) {
+        // x = (i + 1/2) / Nr,  r = R * x^p
+        const real x = (i + 0.5) / static_cast<real>(sph_grid_info_.nr);
+        return sph_grid_info_.radius_max * pow(x, sph_grid_info_.proj_r_degree);
+    }
+
+    __device__ __forceinline__ real cell_center_theta(int j) {
+        // x = (j + 1/2) / Nt
+        // theta = pi/2 + arcsin(2*x - 1)
+        const real x = (j + 0.5) / static_cast<real>(sph_grid_info_.nt);
+        return 0.5 * PI + asin(2 * x - 1);
+    }
+
+    __global__ void calc_acceleration_field_sph_(
+        real3* __restrict__ cell_acc,
+        const real* __restrict__ cell_phi
+    )
+    {
+        const int i = threadIdx.x + blockIdx.x * blockDim.x;
+        const int j = threadIdx.y + blockIdx.y * blockDim.y;
+        const int k = threadIdx.z + blockIdx.z * blockDim.z;
+
+        const int NR = sph_grid_info_.nr;
+        const int NT = sph_grid_info_.nt;
+        const int NP = sph_grid_info_.np;
+
+        if (i >= NR || j >= NT || k >= NP) return;
+
+        const size_t idx = cell_index(i, j, k);
+
+        const real r_i    = cell_center_r(i);
+        const real th_i   = cell_center_theta(j);
+        const real sin_th = sin(th_i);
+
+        // ------------------------------------------------------------
+        // dgrav/dr
+        // ------------------------------------------------------------
+        real dgrav_dr;
+
+        if (i == 0) {
+            const real dr = cell_center_r(i + 1) - r_i;
+            dgrav_dr = (cell_phi[cell_index(i + 1, j, k)] - cell_phi[idx]) / dr;
+        }
+        else if (i == NR - 1) {
+            const real dr = r_i - cell_center_r(i - 1);
+            dgrav_dr = (cell_phi[idx] - cell_phi[cell_index(i - 1, j, k)]) / dr;
+        }
+        else {
+            const real hL = r_i - cell_center_r(i - 1);
+            const real hR = cell_center_r(i + 1) - r_i;
+
+            const real fm = cell_phi[cell_index(i - 1, j, k)];
+            const real f0 = cell_phi[idx];
+            const real fp = cell_phi[cell_index(i + 1, j, k)];
+
+            // взвешенная центральная разность для неравномерной сетки
+            dgrav_dr = (hR * (f0 - fm) / hL + hL * (fp - f0) / hR) / (hL + hR);
+        }
+
+        // ------------------------------------------------------------
+        // dgrav/dtheta
+        // ------------------------------------------------------------
+        real dgrav_dtheta;
+
+        if (j == 0) {
+            const real dth = cell_center_theta(j + 1) - th_i;
+            dgrav_dtheta = (cell_phi[cell_index(i, j + 1, k)] - cell_phi[idx]) / dth;
+        }
+        else if (j == NT - 1) {
+            const real dth = th_i - cell_center_theta(j - 1);
+            dgrav_dtheta = (cell_phi[idx] - cell_phi[cell_index(i, j - 1, k)]) / dth;
+        }
+        else {
+            const real hL = th_i - cell_center_theta(j - 1);
+            const real hR = cell_center_theta(j + 1) - th_i;
+
+            const real fm = cell_phi[cell_index(i, j - 1, k)];
+            const real f0 = cell_phi[idx];
+            const real fp = cell_phi[cell_index(i, j + 1, k)];
+
+            dgrav_dtheta = (hR * (f0 - fm) / hL + hL * (fp - f0) / hR) / (hL + hR);
+        }
+
+        // ------------------------------------------------------------
+        // dgrav/dphi (долгота)
+        // Периодическая центральная разность.
+        // ------------------------------------------------------------
+        real dgrav_dphi = 0;
+
+        if (NP > 1) {
+            const int kp = (k + 1) % NP;
+            const int km = (k - 1 + NP) % NP;
+
+            const real fp = cell_phi[cell_index(i, j, kp)];
+            const real fm = cell_phi[cell_index(i, j, km)];
+
+            real diff = fp - fm;
+
+            // "разворачиваем" разность через 2*pi при переходе через границу
+            if (km > kp) {
+                diff += 2 * PI;
+            }
+
+            const real dphi = 2 * PI / NP;
+            dgrav_dphi = diff / (2 * dphi);
+        }
+
+        // ------------------------------------------------------------
+        // a = -grad(phi) в сферическом базисе
+        // ------------------------------------------------------------
+        const real inv_r      = 1 / r_i;
+        const real inv_r_sin  = 1 / (r_i * sin_th);
+
+        cell_acc[idx] = make_real3(
+            -dgrav_dr,
+            -inv_r * dgrav_dtheta,
+            -inv_r_sin * dgrav_dphi
+        );
+    }
 } // namespace
 
 void SphP2MeshSolver::assign_particles_to_cells(
@@ -307,7 +427,22 @@ void SphP2MeshSolver::calc_acceleration_field(
     const sGridContext_ grid_
 )
 {
-    throw std::runtime_error{ "Not implemented" };
+    spdlog::info("calc_acceleration_field");
+    RR::CUDA::CuDeviceSync();
+
+    using rrgsim::common::BLOCK_SIZE_IN_3D;
+
+    dim3 threads_per_block{ BLOCK_SIZE_IN_3D, BLOCK_SIZE_IN_3D, BLOCK_SIZE_IN_3D };
+    dim3 blocks_per_grid{
+        static_cast<unsigned>(OverInfo::split_into_blocks(grid_info(grid_).nr, BLOCK_SIZE_IN_3D)),
+        static_cast<unsigned>(OverInfo::split_into_blocks(grid_info(grid_).nt, BLOCK_SIZE_IN_3D)),
+        static_cast<unsigned>(OverInfo::split_into_blocks(grid_info(grid_).np, BLOCK_SIZE_IN_3D))
+    };
+
+    RR::CUDA::CuCall(calc_acceleration_field_sph_, blocks_per_grid, threads_per_block) (
+        grid_->acc_,
+        grid_->grav_curr_
+    );
 }
 
 void SphP2MeshSolver::calc_grav_by_center_of_mass(

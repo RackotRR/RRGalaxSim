@@ -5,7 +5,7 @@
 
 namespace rrgsim::common {
 
-#define PI 3.14159265358979
+#define PI 3.14159265358979323846264338327950288
 constexpr int BLOCK_SIZE = 256;
 constexpr int BLOCK_SIZE_IN_3D = 8;
 
@@ -50,8 +50,6 @@ struct SphGridInfo {
     double proj_r_degree;
 
     // theta = pi/2 + arcsin(2/pi * x - 1) <-- проекция
-    // более того, для радиуса и широты используем staggered grid (смещение на полшага)
-    // долгота с целым шагом
 };
 
 using GridInfoVariant = std::variant<RectGridInfo, SphGridInfo>;

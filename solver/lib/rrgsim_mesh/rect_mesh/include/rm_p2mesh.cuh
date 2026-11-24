@@ -33,6 +33,12 @@ namespace rrgsim::mesh::rect {
             sGridContext_ grid_context_
         ) override;
 
+        void deposit_mass(
+            const rrgsim::common::OverInfo& over,
+            const sParticlesContext_ particles_,
+            sGridContext_ grid_
+        ) override;
+
     private:
 
         const rrgsim::common::RectGridInfo& grid_info(

@@ -258,11 +258,11 @@ namespace {
         real r2 = dx_pos * dx_pos + dy_pos * dy_pos + dz_pos * dz_pos;
 
         // Расстояние (с защитой от деления на ноль)
-        real r = sqrtf(r2);
+        real r = sqrt(r2);
 
         // Минимальное расстояние для избежания сингулярности
         const real softening = 0.01;
-        r = fmaxf(r, softening);
+        r = max(r, softening);
 
         // Гравитационный потенциал: phi = -G * M / r
         const real G = 1.;
@@ -284,6 +284,28 @@ void RectP2MeshSolver::assign_particles_to_cells(
         grid_->cell_info_,
         grid_->cell_particles_count_
     );
+}
+
+void RectP2MeshSolver::deposit_mass(
+    const rrgsim::common::OverInfo& over,
+    const sParticlesContext_ particles_,
+    sGridContext_ grid_
+)
+{
+    spdlog::trace("deposit_cell_mass_({}, {})", over.particles, over.blocks);
+
+	// RR::CUDA::CuCall(deposit_cell_mass_NGP_, over.particles, over.blocks) (
+	// 	particles_->mass_,
+	// 	grid_->particles_cell_info_,
+	// 	grid_->mass_
+	// );
+
+    spdlog::trace("deposit_cell_mass_CIC_({}, {})", over.particles, over.blocks);
+	RR::CUDA::CuCall(deposit_cell_mass_CIC_, over.particles, over.blocks) (
+		particles_->pos_,
+		particles_->mass_,
+		grid_->mass_
+	);
 }
 
 void RectP2MeshSolver::calc_acceleration_field(

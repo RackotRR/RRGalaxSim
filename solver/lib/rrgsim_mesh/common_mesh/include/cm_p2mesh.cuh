@@ -44,6 +44,12 @@ namespace rrgsim::mesh {
             const sParticlesContext_ particles_context_,
             sGridContext_ grid_context
         ) = 0;
+
+        virtual void deposit_mass(
+            const rrgsim::common::OverInfo& over,
+            const sParticlesContext_ particles_,
+            sGridContext_ grid_
+        ) = 0;
     };
 
     namespace detail {

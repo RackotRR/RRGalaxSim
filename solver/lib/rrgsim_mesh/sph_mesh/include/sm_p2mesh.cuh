@@ -5,6 +5,13 @@ namespace rrgsim::mesh::sph {
     using rrgsim::common::sph_grid_info_;
     using rrgsim::common::SphGridInfo;
 
+#define N_CIC 8
+
+    struct DataCIC {
+        real weights[N_CIC];
+        size_t indices[N_CIC];
+    };
+
     class SphP2MeshSolver : public P2MeshSolver {
     public:
 
@@ -38,6 +45,12 @@ namespace rrgsim::mesh::sph {
             const rrgsim::common::OverInfo& over,
             const sParticlesContext_ particles_context_,
             sGridContext_ grid_context_
+        ) override;
+
+        void deposit_mass(
+            const rrgsim::common::OverInfo& over,
+            const sParticlesContext_ particles_,
+            sGridContext_ grid_
         ) override;
     };
 

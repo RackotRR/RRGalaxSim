@@ -159,18 +159,7 @@ void P2MeshSolver::convert_particles_to_grid(
         over.num_cells
     );
 
-	// RR::CUDA::CuCall(deposit_cell_mass_NGP_, over.particles, over.blocks) (
-	// 	particles_->mass_,
-	// 	grid_->particles_cell_info_,
-	// 	grid_->mass_
-	// );
-
-    spdlog::trace("deposit_cell_mass_CIC_({}, {})", over.particles, over.blocks);
-	RR::CUDA::CuCall(deposit_cell_mass_CIC_, over.particles, over.blocks) (
-		particles_->pos_,
-		particles_->mass_,
-		grid_->mass_
-	);
+    deposit_mass(over, particles_, grid_);
 
 }
 

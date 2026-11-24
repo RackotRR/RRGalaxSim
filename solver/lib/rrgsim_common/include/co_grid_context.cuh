@@ -31,7 +31,7 @@ namespace rrgsim::common {
         real time = 0.; // current time
         size_t iter = 0; // current iteration
 
-        CuDarray<real> mass_; // cell masses (GPU)
+        CuDarray<real> rho_; // cell density (GPU)
         CuDarray<real> grav_prev_; // cell gravitational potential (GPU)
         CuDarray<real> grav_curr_; // cell gravitational potential (GPU)
         CuDarray<real> grav_next_; // cell gravitational potential (GPU)
@@ -50,7 +50,7 @@ namespace rrgsim::common {
     struct GridContext {
         real time = 0.;
         size_t iter = 0;
-        std::vector<real> mass;
+        std::vector<real> rho;
         std::vector<real> grav;
         std::vector<real3> acc;
         GridInfoVariant info;

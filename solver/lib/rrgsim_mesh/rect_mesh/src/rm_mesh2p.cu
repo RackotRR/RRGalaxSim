@@ -16,7 +16,7 @@ namespace {
 
     /// @note Запуск по частицам
     __global__ void projectCellMassOnParticles(
-        const real* cell_mass,
+        const real* cell_rho,
         const ParticleCellInfo* particles_cell_info,
         const CellInfo* cell_info,
         real* particle_phi
@@ -24,7 +24,8 @@ namespace {
     {
         int i_particle = threadIdx.x + blockIdx.x * blockDim.x;
         int i_cell = particles_cell_info[i_particle].cell_id;
-        particle_phi[i_particle] = cell_mass[i_cell] / cell_info[i_cell].count;
+        real V = rrgsim::common::cube(rect_grid_info_.dx);
+        particle_phi[i_particle] = cell_rho[i_cell] * V / cell_info[i_cell].count;
     }
 
     /// @note Запуск по частицам
@@ -169,7 +170,7 @@ RectMesh2PSolver::project_grid_onto_particles(
         particles_context_->grav_
     );
     RR::CUDA::CuCall(projectCellMassOnParticles, over.particles, over.blocks) (
-        grid_context_->mass_,
+        grid_context_->rho_,
         grid_context_->particles_cell_info_,
         grid_context_->cell_info_,
         particles_context_->mass_

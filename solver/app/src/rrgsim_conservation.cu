@@ -446,15 +446,15 @@ void print_mass_projection(
     const auto& rect_info = std::get<rrgsim::common::RectGridInfo>(rect_grid_context->info);
     size_t NX = rect_info.nx;
 
-    tl::optional<std::string> subdir = "mass_grid";
+    tl::optional<std::string> subdir = "rho_grid";
 
     for (size_t i = 0; i < NX; ++i) {
         rrgsim::io::TagValue r{ "r", rect_info.domain_min + rect_info.dx * i };
-        rrgsim::io::TagValue mx{ "mx", rect_grid_context->mass[AT(i, NX / 2, NX / 2)] };
-        rrgsim::io::TagValue my{ "my", rect_grid_context->mass[AT(NX / 2, i, NX / 2)] };
-        rrgsim::io::TagValue mz{ "mz", rect_grid_context->mass[AT(NX / 2, NX / 2, i)] };
+        rrgsim::io::TagValue mx{ "rhox", rect_grid_context->rho[AT(i, NX / 2, NX / 2)] };
+        rrgsim::io::TagValue my{ "rhoy", rect_grid_context->rho[AT(NX / 2, i, NX / 2)] };
+        rrgsim::io::TagValue mz{ "rhoz", rect_grid_context->rho[AT(NX / 2, NX / 2, i)] };
         handler.append_table(
-            fmt::format("mass_axis_center_{:.10f}", rect_grid_context->time),
+            fmt::format("rho_axis_center_{:.10f}", rect_grid_context->time),
             { r, mx, my, mz },
             subdir
         );

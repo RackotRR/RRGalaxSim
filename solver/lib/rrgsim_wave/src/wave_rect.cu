@@ -103,7 +103,7 @@ __global__ void wave_diss_iteration_rect_(
     real* __restrict__ phi_new,
     const real* __restrict__ phi,
     const real* __restrict__ phi_old,
-    const real* __restrict__ mass
+    const real* __restrict__ cell_rho
 )
 {
     const int  NX         = rect_grid_info_.nx;
@@ -144,7 +144,7 @@ __global__ void wave_diss_iteration_rect_(
 
     // ---------- Источник ----------
     const real G = 1.;
-    real rho = mass[AT(ix, iy, iz)] / (DX * DX * DX);
+    real rho = cell_rho[AT(ix, iy, iz)];
     if (periodic) rho -= bc_params_.rho_mean;   // иначе нет установления
     const real f = 4 * PI * G * rho;
 
@@ -275,7 +275,7 @@ void WaveRectSolver::step(rrgsim::common::sGridContext_ grid_) {
         grid_->grav_next_,
         grid_->grav_curr_,
         grid_->grav_prev_,
-        grid_->mass_
+        grid_->rho_
     );
 }
 

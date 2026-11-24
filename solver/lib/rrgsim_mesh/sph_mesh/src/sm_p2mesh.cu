@@ -73,6 +73,18 @@ namespace {
         );
     }
 
+    __device__ real sph_cell_volume(int ri) {
+        using rrgsim::common::cube;
+
+        const real x_in  = (real)ri       / (real)sph_grid_info_.nr;
+        const real x_out = (real)(ri + 1) / (real)sph_grid_info_.nr;
+        // r³ = R³ · x^(3p)
+        const real r3 = cube(sph_grid_info_.radius_max) *
+                        (pow(x_out, 3. * sph_grid_info_.proj_r_degree) - pow(x_in, 3. * sph_grid_info_.proj_r_degree));
+        const real dOmega = 4 * PI / (real)(sph_grid_info_.nt * sph_grid_info_.np);
+        return r3 * dOmega * (1. / 3.);
+    }
+
     __global__ void assign_particles_to_cells_spherical_(
         const real3* __restrict__ particles_pos,
         ParticleCellInfo* __restrict__ particles_cell_info,
@@ -235,6 +247,21 @@ namespace {
         }
     }
 
+    __global__ void mass_to_density_spherical_(
+        real* cell_rho
+    )
+    {
+        const size_t n = (size_t)sph_grid_info_.nr * sph_grid_info_.nt * sph_grid_info_.np;
+        for (size_t c = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+            c < n;
+            c += (size_t)gridDim.x * blockDim.x
+        )
+        {
+            const int ri = (int)(c % (size_t)sph_grid_info_.nr);
+            cell_rho[c] /= sph_cell_volume(ri);
+        }
+    }
+
     __device__ __forceinline__ real cell_center_r(int i) {
         // x = (i + 1/2) / Nr,  r = R * x^p
         const real x = (i + 0.5) / static_cast<real>(sph_grid_info_.nr);
@@ -381,8 +408,13 @@ void SphP2MeshSolver::deposit_mass(
 	RR::CUDA::CuCall(deposit_real_CIC_spherical_, over.particles, over.blocks) (
 		particles_->pos_,
 		particles_->mass_,
-		grid_->mass_
+		grid_->rho_
 	);
+
+    spdlog::trace("mass_to_density({}, {})", BLOCK_SIZE, BLOCK_SIZE);
+    RR::CUDA::CuCall(mass_to_density_spherical_, BLOCK_SIZE, BLOCK_SIZE) (
+        grid_->rho_
+    );
 }
 
 void SphP2MeshSolver::project_particles_acceleration_on_grid(

@@ -64,17 +64,6 @@ namespace {
         atomicAdd(&cellInfo[i_cell].count, 1);
     }
 
-    __global__ void deposit_cell_mass_NGP_(
-        const real* __restrict__ particle_mass,
-        ParticleCellInfo* __restrict__ particles_cell_info,
-        real* __restrict__ cellMasses
-    )
-    {
-        int i_particle = threadIdx.x + blockIdx.x * blockDim.x;
-        int i_cell = particles_cell_info[i_particle].cell_id;
-        atomicAdd(&cellMasses[i_cell], particle_mass[i_particle]);
-    }
-
     /// @note Исходит из того, что масса всех частиц равна
     __global__ void deposit_cell_grav_NGP_(
         const real* __restrict__ particle_phi,
@@ -113,7 +102,7 @@ namespace {
     __global__ void deposit_cell_mass_CIC_(
         const real3* __restrict__ particle_pos,
         const real* __restrict__ particle_mass,
-        real* __restrict__ cell_mass
+        real* __restrict__ cell_rho
     )
     {
         int p = blockIdx.x * blockDim.x + threadIdx.x;
@@ -121,8 +110,8 @@ namespace {
         const int NX = rect_grid_info_.nx;
         const real inv_dx = 1.f / rect_grid_info_.dx;
 
-        real3 pos = particle_pos[p];
-        real  m   = particle_mass[p];
+        const real3 pos = particle_pos[p];
+        const real rho = particle_mass[p] * rrgsim::common::cube(inv_dx);
 
         // Физические координаты -> индексы центров ячеек (cell-centered, сдвиг -0.5)
         real u = (pos.x - rect_grid_info_.domain_min) * inv_dx - 0.5f;
@@ -162,14 +151,14 @@ namespace {
         real w011 = wx0 * wy1 * wz1;
         real w111 = wx1 * wy1 * wz1;
 
-        atomicAdd(&cell_mass[AT(i0, j0, k0)], m * w000);
-        atomicAdd(&cell_mass[AT(i1, j0, k0)], m * w100);
-        atomicAdd(&cell_mass[AT(i0, j1, k0)], m * w010);
-        atomicAdd(&cell_mass[AT(i1, j1, k0)], m * w110);
-        atomicAdd(&cell_mass[AT(i0, j0, k1)], m * w001);
-        atomicAdd(&cell_mass[AT(i1, j0, k1)], m * w101);
-        atomicAdd(&cell_mass[AT(i0, j1, k1)], m * w011);
-        atomicAdd(&cell_mass[AT(i1, j1, k1)], m * w111);
+        atomicAdd(&cell_rho[AT(i0, j0, k0)], rho * w000);
+        atomicAdd(&cell_rho[AT(i1, j0, k0)], rho * w100);
+        atomicAdd(&cell_rho[AT(i0, j1, k0)], rho * w010);
+        atomicAdd(&cell_rho[AT(i1, j1, k0)], rho * w110);
+        atomicAdd(&cell_rho[AT(i0, j0, k1)], rho * w001);
+        atomicAdd(&cell_rho[AT(i1, j0, k1)], rho * w101);
+        atomicAdd(&cell_rho[AT(i0, j1, k1)], rho * w011);
+        atomicAdd(&cell_rho[AT(i1, j1, k1)], rho * w111);
     }
 
     __global__ void calc_acceleration_field_(
@@ -293,18 +282,10 @@ void RectP2MeshSolver::deposit_mass(
 )
 {
     spdlog::trace("deposit_cell_mass_({}, {})", over.particles, over.blocks);
-
-	// RR::CUDA::CuCall(deposit_cell_mass_NGP_, over.particles, over.blocks) (
-	// 	particles_->mass_,
-	// 	grid_->particles_cell_info_,
-	// 	grid_->mass_
-	// );
-
-    spdlog::trace("deposit_cell_mass_CIC_({}, {})", over.particles, over.blocks);
 	RR::CUDA::CuCall(deposit_cell_mass_CIC_, over.particles, over.blocks) (
 		particles_->pos_,
 		particles_->mass_,
-		grid_->mass_
+		grid_->rho_
 	);
 }
 

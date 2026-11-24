@@ -10,7 +10,7 @@ void GridContext::fill_device_data(
 )
 {
     context_->grav_curr_.to_vector(this->grav);
-    context_->mass_.to_vector(this->mass);
+    context_->rho_.to_vector(this->rho);
     context_->acc_.to_vector(this->acc);
 
     this->time = context_->time;
@@ -53,7 +53,7 @@ initialize_grid_context_(
 
     size_t N = get_grid_size(grid_info);
 
-    context_->mass_ = CuDarray<real>(N);
+    context_->rho_ = CuDarray<real>(N);
     context_->grav_prev_ = CuDarray<real>(N);
     context_->grav_curr_ = CuDarray<real>(N);
     context_->grav_next_ = CuDarray<real>(N);
@@ -77,7 +77,7 @@ initialize_grid_context(
 
     size_t N = get_grid_size(grid_info);
     context->grav = std::vector<real>(N);
-    context->mass = std::vector<real>(N);
+    context->rho = std::vector<real>(N);
     context->info = grid_info;
     return context;
 }

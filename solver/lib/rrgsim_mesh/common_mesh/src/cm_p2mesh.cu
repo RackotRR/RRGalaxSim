@@ -141,7 +141,7 @@ void P2MeshSolver::convert_particles_to_grid(
 	grid_->cell_info_.set_zero();
 	grid_->cell_particles_count_.set_zero();
 	grid_->particles_in_block_.set_zero();
-	grid_->mass_.set_zero();
+	grid_->rho_.set_zero();
 
     assign_particles_to_cells(over, particles_, grid_);
 

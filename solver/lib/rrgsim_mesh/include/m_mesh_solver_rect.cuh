@@ -62,7 +62,7 @@ namespace rrgsim::mesh::rect {
 
     };
 
-    inline __device__ __forceinline__
+    inline __device__
     size_t cell_index(int i, int j, int k) {
         return (size_t)i
             +  (size_t)rect_grid_info_.nx * (size_t)j

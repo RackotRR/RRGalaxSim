@@ -60,7 +60,7 @@ namespace rrgsim::mesh::sph {
         ) override;
     };
 
-    inline __device__ __forceinline__
+    inline __device__
     size_t cell_index(int i, int j, int k) {
         return (size_t)i
             +  (size_t)sph_grid_info_.nr * (size_t)j

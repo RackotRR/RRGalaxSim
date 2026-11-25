@@ -19,6 +19,11 @@ namespace rrgsim::common {
         if (auto jj = j.find("saves_without_dump"); jj != j.end()) {
             j.at("saves_without_dump").get_to(sim_params.saves_without_dump);
         }
+
+        if (auto jj = j.find("acceleration_model"); jj != j.end()) {
+            std::string acceleration_model = jj->get<std::string>();
+            sim_params.use_wave_model = acceleration_model == "Wave";
+        }
     }
 
     void to_json(nlohmann::json& j, const RectGridInfo& grid_info) {

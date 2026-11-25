@@ -93,7 +93,7 @@ void MeshSolver::init_context(
     };
 
     if (false == mb_over.has_value()) {
-        init(grid_);
+        this->init(grid_);
     }
 
     if (nullptr == grid_->particles_cell_info_) {

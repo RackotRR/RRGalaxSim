@@ -23,7 +23,6 @@ class WaveIntegrationSolver : public IntegrationSolver {
             throw std::runtime_error{ "No grid info " + for_error };
         }
 
-
         if (false == params.mb_wave_params.has_value()) {
             throw std::runtime_error{ "No wave params " + for_error };
         }
@@ -38,6 +37,7 @@ class WaveIntegrationSolver : public IntegrationSolver {
             throw std::runtime_error{ "No grid context " + for_error };
         }
         this->grid_context_ = grid_context_;
+        this->mesh_solver = rrgsim::mesh::make_mesh_solver(grid_context_->info);
     }
 
     void precalc() override {

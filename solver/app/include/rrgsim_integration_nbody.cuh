@@ -2,8 +2,7 @@
 #include "rrgsim_integration.cuh"
 #include <co_sim_params.h>
 #include <nbody.cuh>
-#include <m_mesh2p.cuh>
-#include <m_p2mesh.cuh>
+#include <m_mesh_solver.cuh>
 
 namespace rrgsim::integration {
 
@@ -19,7 +18,7 @@ public:
         this->grid_context_ = grid_context_;
 
         if (grid_context_) {
-            this->p2mesh_solver = rrgsim::mesh::make_p2mesh_solver(grid_context_->info);
+            this->mesh_solver = rrgsim::mesh::make_mesh_solver(grid_context_->info);
         }
 
         if (nullptr == particles_context_) {
@@ -38,15 +37,15 @@ public:
             return;
         }
 
-        p2mesh_solver->convert_particles_to_grid(particles_context_, grid_context_);
+        mesh_solver->convert_particles_to_grid(particles_context_, grid_context_);
 
         if (false == particles_grav_is_actual) {
             // в calc_step не рассчитывается потенциал
             rrgsim::nbody::nbody_grav(particles_context_);
         }
 
-        p2mesh_solver->project_particles_grav_on_grid(particles_context_, grid_context_);
-        p2mesh_solver->project_particles_acceleration_on_grid(particles_context_, grid_context_);
+        mesh_solver->project_particles_grav_on_grid(particles_context_, grid_context_);
+        mesh_solver->project_particles_acceleration_on_grid(particles_context_, grid_context_);
 
         particles_grav_is_actual = true;
     }
@@ -67,7 +66,7 @@ private:
 
     rrgsim::common::SimParams sim_params;
 
-    rrgsim::mesh::sP2MeshSolver p2mesh_solver;
+    rrgsim::mesh::sMeshSolver mesh_solver;
 };
 
 } // namespace rrgsim::integration

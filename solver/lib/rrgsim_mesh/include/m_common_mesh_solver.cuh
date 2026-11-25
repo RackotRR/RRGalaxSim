@@ -6,9 +6,16 @@ namespace rrgsim::mesh {
     using common::sGridContext_;
     using common::sParticlesContext_;
 
-    class P2MeshSolver {
+#define N_CIC 8
+
+    struct DataCIC {
+        real weights[N_CIC];
+        size_t indices[N_CIC];
+    };
+
+    class MeshSolver {
     public:
-        void init_p2mesh_context(
+        void init_context(
             sGridContext_ grid_,
             const sParticlesContext_ particles_
         );
@@ -38,11 +45,25 @@ namespace rrgsim::mesh {
             real total_mass
         ) = 0;
 
+        virtual void project_grid_acceleration_on_particles(
+            const sGridContext_ grid_context_,
+            sParticlesContext_ particles_context_
+        ) = 0;
+
+        virtual void project_grid_grav_on_particles(
+            const sGridContext_ grid_context_,
+            sParticlesContext_ particles_context_
+        ) = 0;
+
     protected:
+        virtual void init(
+            const sGridContext_ grid_
+        ) = 0;
+
         virtual void assign_particles_to_cells(
             const rrgsim::common::OverInfo& over,
             const sParticlesContext_ particles_context_,
-            sGridContext_ grid_context
+            sGridContext_ grid_context_
         ) = 0;
 
         virtual void deposit_mass(

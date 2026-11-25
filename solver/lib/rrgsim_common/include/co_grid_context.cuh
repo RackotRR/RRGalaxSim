@@ -74,13 +74,4 @@ namespace rrgsim::common {
         GridInfoVariant grid_info
     );
 
-    // данные проекции значений на сетке на частицы
-    struct GridProjectionOnParticles {
-        std::vector<real> mass;
-        std::vector<real> grav;
-
-        GridInfoVariant grid_info;
-        ParticlesInfo particles_info;
-    };
-
 } // namespace rrgsim::common

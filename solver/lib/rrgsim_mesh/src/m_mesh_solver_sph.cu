@@ -1,4 +1,4 @@
-#include "sm_p2mesh.cuh"
+#include "m_mesh_solver_sph.cuh"
 #include <co_device_utils.cuh>
 #include <spdlog/spdlog.h>
 
@@ -141,8 +141,8 @@ namespace {
         atomicAdd(&cellInfo[i_cell].count, 1);
     }
 
-    __device__ DataCIC
-    deposit_CIC_(const real3& pos) {
+    __device__ __forceinline__ DataCIC
+    deposit_CIC_spherical_(const real3& pos) {
         using rrgsim::common::clamp;
 
         // ----- Декартовы -> Сферические -----
@@ -213,7 +213,7 @@ namespace {
         const real3 pos = particle_pos[p];
         const real  v   = particle_real[p];
 
-        auto data_CIC = deposit_CIC_(pos);
+        auto data_CIC = deposit_CIC_spherical_(pos);
 
         #pragma unroll
         for (int i = 0; i < N_CIC; ++i) {
@@ -235,7 +235,7 @@ namespace {
         const real3 pos = particle_pos[p];
         const real3 v = particle_real3[p];
 
-        auto data_CIC = deposit_CIC_(pos);
+        auto data_CIC = deposit_CIC_spherical_(pos);
 
         #pragma unroll
         for (int i = 0; i < N_CIC; ++i) {
@@ -247,10 +247,7 @@ namespace {
         }
     }
 
-    __global__ void mass_to_density_spherical_(
-        real* cell_rho
-    )
-    {
+    __global__ void mass_to_density_spherical_(real* cell_rho) {
         const size_t n = (size_t)sph_grid_info_.nr * sph_grid_info_.nt * sph_grid_info_.np;
         for (size_t c = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
             c < n;
@@ -383,7 +380,18 @@ namespace {
     }
 } // namespace
 
-void SphP2MeshSolver::assign_particles_to_cells(
+void SphMeshSolver::init(
+    const sGridContext_ grid_
+)
+{
+    RR::CUDA::CuCopyToSymbol(
+        grid_info(grid_),
+        rrgsim::common::sph_grid_info_,
+        RR::CUDA::ToDevice
+    );
+}
+
+void SphMeshSolver::assign_particles_to_cells(
     const rrgsim::common::OverInfo& over,
     const sParticlesContext_ particles_,
     sGridContext_ grid_
@@ -398,7 +406,7 @@ void SphP2MeshSolver::assign_particles_to_cells(
     );
 }
 
-void SphP2MeshSolver::deposit_mass(
+void SphMeshSolver::deposit_mass(
     const rrgsim::common::OverInfo& over,
     const sParticlesContext_ particles_,
     sGridContext_ grid_
@@ -417,7 +425,7 @@ void SphP2MeshSolver::deposit_mass(
     );
 }
 
-void SphP2MeshSolver::project_particles_acceleration_on_grid(
+void SphMeshSolver::project_particles_acceleration_on_grid(
     const sParticlesContext_ particles_,
     sGridContext_ grid_
 )
@@ -436,7 +444,7 @@ void SphP2MeshSolver::project_particles_acceleration_on_grid(
 	);
 }
 
-void SphP2MeshSolver::project_particles_grav_on_grid(
+void SphMeshSolver::project_particles_grav_on_grid(
     const sParticlesContext_ particles_,
     sGridContext_ grid_
 )
@@ -455,7 +463,7 @@ void SphP2MeshSolver::project_particles_grav_on_grid(
 	);
 }
 
-void SphP2MeshSolver::calc_acceleration_field(
+void SphMeshSolver::calc_acceleration_field(
     const sGridContext_ grid_
 )
 {
@@ -477,7 +485,7 @@ void SphP2MeshSolver::calc_acceleration_field(
     );
 }
 
-void SphP2MeshSolver::calc_grav_by_center_of_mass(
+void SphMeshSolver::calc_grav_by_center_of_mass(
     rrgsim::common::sGridContext_ grid_,
     real3 center_of_mass,
     real total_mass
@@ -487,7 +495,7 @@ void SphP2MeshSolver::calc_grav_by_center_of_mass(
 }
 
 const rrgsim::common::SphGridInfo&
-SphP2MeshSolver::grid_info(
+SphMeshSolver::grid_info(
     const rrgsim::common::sGridContext_& grid_
 )
 {
@@ -497,6 +505,22 @@ SphP2MeshSolver::grid_info(
     else {
         throw std::runtime_error{ "SphGridInfo::grid_info met unexpected grid info variant" };
     }
+}
+
+void SphMeshSolver::project_grid_acceleration_on_particles(
+    sGridContext_ grid_context_,
+    sParticlesContext_ particles_context_
+)
+{
+    throw std::runtime_error{ "Not implemented" };
+}
+
+void SphMeshSolver::project_grid_grav_on_particles(
+    const sGridContext_ grid_context_,
+    sParticlesContext_ particles_context_
+)
+{
+    throw std::runtime_error{ "Not implemented" };
 }
 
 } // namespace rrgsim::mesh::sph

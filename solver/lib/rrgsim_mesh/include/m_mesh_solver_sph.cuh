@@ -1,18 +1,11 @@
 #pragma once
-#include <cm_p2mesh.cuh>
+#include <m_common_mesh_solver.cuh>
 
 namespace rrgsim::mesh::sph {
     using rrgsim::common::sph_grid_info_;
     using rrgsim::common::SphGridInfo;
 
-#define N_CIC 8
-
-    struct DataCIC {
-        real weights[N_CIC];
-        size_t indices[N_CIC];
-    };
-
-    class SphP2MeshSolver : public P2MeshSolver {
+    class SphMeshSolver : public MeshSolver {
     public:
 
         const SphGridInfo& grid_info(
@@ -39,7 +32,20 @@ namespace rrgsim::mesh::sph {
             real total_mass
         ) override;
 
+        void project_grid_acceleration_on_particles(
+            sGridContext_ grid_context_,
+            sParticlesContext_ particles_context_
+        ) override;
+
+        void project_grid_grav_on_particles(
+            const sGridContext_ grid_context_,
+            sParticlesContext_ particles_context_
+        ) override;
+
     protected:
+        void init(
+            const sGridContext_ grid_
+        ) override;
 
         void assign_particles_to_cells(
             const rrgsim::common::OverInfo& over,

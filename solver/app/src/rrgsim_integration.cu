@@ -1,6 +1,6 @@
 #include "rrgsim_integration.cuh"
 #include "rrgsim_integration_nbody.cuh"
-#include "rrgsim_integration_rect.cuh"
+#include "rrgsim_integration_wave.cuh"
 
 #include <spdlog/spdlog.h>
 
@@ -40,7 +40,7 @@ void integrate(
 
     std::shared_ptr<IntegrationSolver> solver;
     if (params.sim_params.use_wave_model) {
-        solver = std::make_shared<RectWaveIntegrationSolver>();
+        solver = std::make_shared<WaveIntegrationSolver>();
     }
     else {
         solver = std::make_shared<NBodyIntegrationSolver>();

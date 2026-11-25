@@ -5,15 +5,12 @@
 #include <co_grid_context.cuh>
 
 #include <spdlog/spdlog.h>
-#include <rrgsim_tl.h>
 
-#include "rm_p2mesh.cuh"
-
-#include <numeric>
+#include "m_mesh_solver_rect.cuh"
 
 namespace rrgsim::mesh::rect {
 
-using rrgsim::common::rect_grid_info_;
+using rrgsim::common::particles_info_;
 using rrgsim::common::BLOCK_SIZE;
 using rrgsim::common::detail::ParticleCellInfo;
 using rrgsim::common::detail::CellInfo;
@@ -49,7 +46,7 @@ namespace {
 
         // Линейный индекс ячейки (Morton-подобный порядок для пространственной локальности)
         // Используем чередование битов для лучшей когерентности
-        size_t i_cell = AT(ix, iy, iz);
+        size_t i_cell = cell_index(ix, iy, iz);
 
         // Сохраняем номер ячейки для частицы
         particles_cell_info[i_part].cell_id = i_cell;
@@ -64,101 +61,114 @@ namespace {
         atomicAdd(&cellInfo[i_cell].count, 1);
     }
 
-    /// @note Исходит из того, что масса всех частиц равна
-    __global__ void deposit_cell_grav_NGP_(
-        const real* __restrict__ particle_phi,
-        const ParticleCellInfo* __restrict__ particles_cell_info,
-        const CellInfo* __restrict__ cellInfo,
-        real* __restrict__ cell_phi
-    )
-    {
-        int i_particle = threadIdx.x + blockIdx.x * blockDim.x;
-        int i_cell = particles_cell_info[i_particle].cell_id;
-        atomicAdd(&cell_phi[i_cell], particle_phi[i_particle] / cellInfo[i_cell].count);
-    }
+    /// @brief Вычисляет веса и индексы 8 узлов сетки для CIC-интерполяции в точке pos
+    __device__ __forceinline__ DataCIC
+    deposit_CIC_rect_(const real3& pos) {
+        const int  nx         = rect_grid_info_.nx;
+        const real dx         = rect_grid_info_.dx;
+        const real inv_dx     = 1. / dx;
+        const real domain_min = rect_grid_info_.domain_min;
 
-    /// @note Исходит из того, что масса всех частиц равна
-    __global__ void deposit_cell_acc_NGP_(
-        const real3* __restrict__ particle_acc,
-        const ParticleCellInfo* __restrict__ particles_cell_info,
-        const CellInfo* __restrict__ cellInfo,
-        real3* __restrict__ cell_acc
-    )
-    {
-        int i_particle = threadIdx.x + blockIdx.x * blockDim.x;
-        int i_cell = particles_cell_info[i_particle].cell_id;
+        // Индексы ячейки и веса для трилинейной интерполяции
+        using rrgsim::common::clamp;
+        real u = clamp<real>((pos.x - domain_min) * inv_dx - 0.5, 0, nx - 1);
+        real v = clamp<real>((pos.y - domain_min) * inv_dx - 0.5, 0, nx - 1);
+        real w = clamp<real>((pos.z - domain_min) * inv_dx - 0.5, 0, nx - 1);
 
-        real3 a = particle_acc[i_particle];
-        real inv_count = 1. / cellInfo[i_cell].count;
+        int i0 = (int)u;
+        int j0 = (int)v;
+        int k0 = (int)w;
 
-        atomicAdd(&cell_acc[i_cell].x, a.x * inv_count);
-        atomicAdd(&cell_acc[i_cell].y, a.y * inv_count);
-        atomicAdd(&cell_acc[i_cell].z, a.z * inv_count);
-    }
-
-    /// @brief CIC-депозиция массы частиц на сетку.
-    /// Для каждой частицы раскладывает её массу по 8 ближайшим центрам ячеек
-    /// с билинейными весами
-    __global__ void deposit_cell_mass_CIC_(
-        const real3* __restrict__ particle_pos,
-        const real* __restrict__ particle_mass,
-        real* __restrict__ cell_rho
-    )
-    {
-        int p = blockIdx.x * blockDim.x + threadIdx.x;
-
-        const int NX = rect_grid_info_.nx;
-        const real inv_dx = 1.f / rect_grid_info_.dx;
-
-        const real3 pos = particle_pos[p];
-        const real rho = particle_mass[p] * rrgsim::common::cube(inv_dx);
-
-        // Физические координаты -> индексы центров ячеек (cell-centered, сдвиг -0.5)
-        real u = (pos.x - rect_grid_info_.domain_min) * inv_dx - 0.5f;
-        real v = (pos.y - rect_grid_info_.domain_min) * inv_dx - 0.5f;
-        real w = (pos.z - rect_grid_info_.domain_min) * inv_dx - 0.5f;
-
-        // Клэмпим к допустимому диапазону центров ячеек [0, nx-1]
-        const real eps = 1E-6;
-        u = rrgsim::common::clamp<real>(u, 0, (NX - 1) - eps);
-        v = rrgsim::common::clamp<real>(v, 0, (NX - 1) - eps);
-        w = rrgsim::common::clamp<real>(w, 0, (NX - 1) - eps);
-
-        int i0 = (int)floor(u);
-        int j0 = (int)floor(v);
-        int k0 = (int)floor(w);
-
-        int i1 = min(i0 + 1, NX - 1);
-        int j1 = min(j0 + 1, NX - 1);
-        int k1 = min(k0 + 1, NX - 1);
+        int i1 = min(i0 + 1, nx - 1);
+        int j1 = min(j0 + 1, nx - 1);
+        int k1 = min(k0 + 1, nx - 1);
 
         real fx = u - i0;
         real fy = v - j0;
         real fz = w - k0;
 
-        // Веса CIC (билинейные)
-        real wx0 = 1.f - fx, wx1 = fx;
-        real wy0 = 1.f - fy, wy1 = fy;
-        real wz0 = 1.f - fz, wz1 = fz;
+        real wx0 = 1 - fx, wx1 = fx;
+        real wy0 = 1 - fy, wy1 = fy;
+        real wz0 = 1 - fz, wz1 = fz;
 
-        // 8 узлов, веса = произведения
-        real w000 = wx0 * wy0 * wz0;
-        real w100 = wx1 * wy0 * wz0;
-        real w010 = wx0 * wy1 * wz0;
-        real w110 = wx1 * wy1 * wz0;
-        real w001 = wx0 * wy0 * wz1;
-        real w101 = wx1 * wy0 * wz1;
-        real w011 = wx0 * wy1 * wz1;
-        real w111 = wx1 * wy1 * wz1;
+        DataCIC data;
 
-        atomicAdd(&cell_rho[AT(i0, j0, k0)], rho * w000);
-        atomicAdd(&cell_rho[AT(i1, j0, k0)], rho * w100);
-        atomicAdd(&cell_rho[AT(i0, j1, k0)], rho * w010);
-        atomicAdd(&cell_rho[AT(i1, j1, k0)], rho * w110);
-        atomicAdd(&cell_rho[AT(i0, j0, k1)], rho * w001);
-        atomicAdd(&cell_rho[AT(i1, j0, k1)], rho * w101);
-        atomicAdd(&cell_rho[AT(i0, j1, k1)], rho * w011);
-        atomicAdd(&cell_rho[AT(i1, j1, k1)], rho * w111);
+        data.weights[0b000] = wx0*wy0*wz0;
+        data.weights[0b100] = wx1*wy0*wz0;
+        data.weights[0b010] = wx0*wy1*wz0;
+        data.weights[0b110] = wx1*wy1*wz0;
+        data.weights[0b001] = wx0*wy0*wz1;
+        data.weights[0b101] = wx1*wy0*wz1;
+        data.weights[0b011] = wx0*wy1*wz1;
+        data.weights[0b111] = wx1*wy1*wz1;
+
+        data.indices[0b000] = cell_index(i0, j0, k0);
+        data.indices[0b100] = cell_index(i1, j0, k0);
+        data.indices[0b010] = cell_index(i0, j1, k0);
+        data.indices[0b110] = cell_index(i1, j1, k0);
+        data.indices[0b001] = cell_index(i0, j0, k1);
+        data.indices[0b101] = cell_index(i1, j0, k1);
+        data.indices[0b011] = cell_index(i0, j1, k1);
+        data.indices[0b111] = cell_index(i1, j1, k1);
+
+        return data;
+    }
+
+    __global__ void deposit_real_CIC_rect_(
+        const real3* __restrict__ particle_pos,
+        const real*  __restrict__ particle_real,
+        real*        __restrict__ cell_real
+    )
+    {
+        const int p = blockIdx.x * blockDim.x + threadIdx.x;
+        if (p >= particles_info_.ntotal) return;
+
+        const real3 pos = particle_pos[p];
+        const real  v   = particle_real[p];
+
+        auto data_CIC = deposit_CIC_rect_(pos);
+
+        #pragma unroll
+        for (int i = 0; i < N_CIC; ++i) {
+            size_t index = data_CIC.indices[i];
+            real weight = data_CIC.weights[i];
+            atomicAdd(&cell_real[index], v * weight);
+        }
+    }
+
+    __global__ void deposit_real3_CIC_rect_(
+        const real3* __restrict__ particle_pos,
+        const real3* __restrict__ particle_real3,
+        real3*       __restrict__ cell_real3
+    )
+    {
+        const int p = blockIdx.x * blockDim.x + threadIdx.x;
+        if (p >= particles_info_.ntotal) return;
+
+        const real3 pos = particle_pos[p];
+        const real3 v = particle_real3[p];
+
+        auto data_CIC = deposit_CIC_rect_(pos);
+
+        #pragma unroll
+        for (int i = 0; i < N_CIC; ++i) {
+            size_t index = data_CIC.indices[i];
+            real weight = data_CIC.weights[i];
+            atomicAdd(&cell_real3[index].x, v.x * weight);
+            atomicAdd(&cell_real3[index].y, v.y * weight);
+            atomicAdd(&cell_real3[index].z, v.z * weight);
+        }
+    }
+
+    __global__ void mass_to_density_rect_(real* cell_rho) {
+        const size_t n = rrgsim::common::cube((size_t)rect_grid_info_.nx);
+        for (size_t c = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
+            c < n;
+            c += (size_t)gridDim.x * blockDim.x
+        )
+        {
+            cell_rho[c] /= rrgsim::common::cube(rect_grid_info_.dx);
+        }
     }
 
     __global__ void calc_acceleration_field_(
@@ -173,38 +183,38 @@ namespace {
         const real DX = rect_grid_info_.dx;
         if (ix >= NX || iy >= NX || iz >= NX) return;
 
-        size_t xyz = AT(ix, iy, iz);
+        size_t xyz = cell_index(ix, iy, iz);
 
         real3 dphi;
 
         if (ix == 0) {
-            dphi.x = cell_phi[AT(ix + 1, iy, iz)] - cell_phi[xyz];
+            dphi.x = cell_phi[cell_index(ix + 1, iy, iz)] - cell_phi[xyz];
         }
         else if (ix == NX - 1) {
-            dphi.x = cell_phi[xyz] - cell_phi[AT(ix - 1, iy, iz)];
+            dphi.x = cell_phi[xyz] - cell_phi[cell_index(ix - 1, iy, iz)];
         }
         else {
-            dphi.x = 0.5 * (cell_phi[AT(ix + 1, iy, iz)] - cell_phi[AT(ix - 1, iy, iz)]);
+            dphi.x = 0.5 * (cell_phi[cell_index(ix + 1, iy, iz)] - cell_phi[cell_index(ix - 1, iy, iz)]);
         }
 
         if (iy == 0) {
-            dphi.y = cell_phi[AT(ix, iy + 1, iz)] - cell_phi[xyz];
+            dphi.y = cell_phi[cell_index(ix, iy + 1, iz)] - cell_phi[xyz];
         }
         else if (iy == NX - 1) {
-            dphi.y = cell_phi[xyz] - cell_phi[AT(ix, iy - 1, iz)];
+            dphi.y = cell_phi[xyz] - cell_phi[cell_index(ix, iy - 1, iz)];
         }
         else {
-            dphi.y = 0.5 * (cell_phi[AT(ix, iy + 1, iz)] - cell_phi[AT(ix, iy - 1, iz)]);
+            dphi.y = 0.5 * (cell_phi[cell_index(ix, iy + 1, iz)] - cell_phi[cell_index(ix, iy - 1, iz)]);
         }
 
         if (iz == 0) {
-            dphi.z = cell_phi[AT(ix, iy, iz + 1)] - cell_phi[xyz];
+            dphi.z = cell_phi[cell_index(ix, iy, iz + 1)] - cell_phi[xyz];
         }
         else if (iz == NX - 1) {
-            dphi.z = cell_phi[xyz] - cell_phi[AT(ix, iy, iz - 1)];
+            dphi.z = cell_phi[xyz] - cell_phi[cell_index(ix, iy, iz - 1)];
         }
         else {
-            dphi.z = 0.5 * (cell_phi[AT(ix, iy, iz + 1)] - cell_phi[AT(ix, iy, iz - 1)]);
+            dphi.z = 0.5 * (cell_phi[cell_index(ix, iy, iz + 1)] - cell_phi[cell_index(ix, iy, iz - 1)]);
         }
 
         real coef = -1. / DX;
@@ -255,12 +265,22 @@ namespace {
 
         // Гравитационный потенциал: phi = -G * M / r
         const real G = 1.;
-        potential[AT(i, j, k)] = -G * total_mass / r;
+        potential[cell_index(i, j, k)] = -G * total_mass / r;
     }
 } // namespace
 
+void RectMeshSolver::init(
+    const sGridContext_ grid_
+)
+{
+    RR::CUDA::CuCopyToSymbol(
+        grid_info(grid_),
+        rrgsim::common::rect_grid_info_,
+        RR::CUDA::ToDevice
+    );
+}
 
-void RectP2MeshSolver::assign_particles_to_cells(
+void RectMeshSolver::assign_particles_to_cells(
     const rrgsim::common::OverInfo& over,
     const sParticlesContext_ particles_,
     sGridContext_ grid_
@@ -275,21 +295,26 @@ void RectP2MeshSolver::assign_particles_to_cells(
     );
 }
 
-void RectP2MeshSolver::deposit_mass(
+void RectMeshSolver::deposit_mass(
     const rrgsim::common::OverInfo& over,
     const sParticlesContext_ particles_,
     sGridContext_ grid_
 )
 {
-    spdlog::trace("deposit_cell_mass_({}, {})", over.particles, over.blocks);
-	RR::CUDA::CuCall(deposit_cell_mass_CIC_, over.particles, over.blocks) (
+    spdlog::trace("deposit_mass({}, {})", over.particles, over.blocks);
+	RR::CUDA::CuCall(deposit_real_CIC_rect_, over.particles, over.blocks) (
 		particles_->pos_,
 		particles_->mass_,
 		grid_->rho_
 	);
+
+    spdlog::trace("mass_to_density({}, {})", BLOCK_SIZE, BLOCK_SIZE);
+    RR::CUDA::CuCall(mass_to_density_rect_, BLOCK_SIZE, BLOCK_SIZE) (
+        grid_->rho_
+    );
 }
 
-void RectP2MeshSolver::calc_acceleration_field(
+void RectMeshSolver::calc_acceleration_field(
     const sGridContext_ grid_
 )
 {
@@ -308,7 +333,7 @@ void RectP2MeshSolver::calc_acceleration_field(
     );
 }
 
-void RectP2MeshSolver::project_particles_acceleration_on_grid(
+void RectMeshSolver::project_particles_acceleration_on_grid(
     const sParticlesContext_ particles_,
     sGridContext_ grid_
 )
@@ -320,15 +345,14 @@ void RectP2MeshSolver::project_particles_acceleration_on_grid(
 
 	grid_->acc_.set_zero();
 
-	RR::CUDA::CuCall(deposit_cell_acc_NGP_, over.particles, over.blocks) (
+	RR::CUDA::CuCall(deposit_real3_CIC_rect_, over.particles, over.blocks) (
+		particles_->pos_,
 		particles_->acc_,
-		grid_->particles_cell_info_,
-		grid_->cell_info_,
 		grid_->acc_
 	);
 }
 
-void RectP2MeshSolver::project_particles_grav_on_grid(
+void RectMeshSolver::project_particles_grav_on_grid(
     const sParticlesContext_ particles_,
     sGridContext_ grid_
 )
@@ -340,15 +364,14 @@ void RectP2MeshSolver::project_particles_grav_on_grid(
 
     grid_->grav_curr_.set_zero();
 
-	RR::CUDA::CuCall(deposit_cell_grav_NGP_, over.particles, over.blocks) (
+	RR::CUDA::CuCall(deposit_real_CIC_rect_, over.particles, over.blocks) (
+		particles_->pos_,
 		particles_->grav_,
-		grid_->particles_cell_info_,
-		grid_->cell_info_,
 		grid_->grav_curr_
 	);
 }
 
-void RectP2MeshSolver::calc_grav_by_center_of_mass(
+void RectMeshSolver::calc_grav_by_center_of_mass(
     rrgsim::common::sGridContext_ grid_,
     real3 center_of_mass,
     real total_mass
@@ -370,7 +393,7 @@ void RectP2MeshSolver::calc_grav_by_center_of_mass(
 }
 
 const rrgsim::common::RectGridInfo&
-RectP2MeshSolver::grid_info(
+RectMeshSolver::grid_info(
     const rrgsim::common::sGridContext_& grid_
 )
 {
@@ -378,8 +401,24 @@ RectP2MeshSolver::grid_info(
         return *rect_grid_info;
     }
     else {
-        throw std::runtime_error{ "RectP2MeshSolver::grid_info met unexpected grid info variant" };
+        throw std::runtime_error{ "RectMeshSolver::grid_info met unexpected grid info variant" };
     }
+}
+
+void RectMeshSolver::project_grid_acceleration_on_particles(
+    sGridContext_ grid_context_,
+    sParticlesContext_ particles_context_
+)
+{
+    throw std::runtime_error{ "Not implemented" };
+}
+
+void RectMeshSolver::project_grid_grav_on_particles(
+    const sGridContext_ grid_context_,
+    sParticlesContext_ particles_context_
+)
+{
+    throw std::runtime_error{ "Not implemented" };
 }
 
 } // namespace rrgsim::rect_mesh

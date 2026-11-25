@@ -1,9 +1,11 @@
 #pragma once
-#include <cm_p2mesh.cuh>
+#include <m_common_mesh_solver.cuh>
 
 namespace rrgsim::mesh::rect {
+    using rrgsim::common::rect_grid_info_;
+    using rrgsim::common::RectGridInfo;
 
-    class RectP2MeshSolver : public P2MeshSolver {
+    class RectMeshSolver : public MeshSolver {
     public:
         void project_particles_acceleration_on_grid(
             const sParticlesContext_ particles_,
@@ -25,12 +27,25 @@ namespace rrgsim::mesh::rect {
             real total_mass
         ) override;
 
+        void project_grid_acceleration_on_particles(
+            sGridContext_ grid_,
+            sParticlesContext_ particles_
+        ) override;
+
+        void project_grid_grav_on_particles(
+            const sGridContext_ grid_,
+            sParticlesContext_ particles_
+        ) override;
+
     protected:
+        void init(
+            const sGridContext_ grid_
+        ) override;
 
         void assign_particles_to_cells(
             const rrgsim::common::OverInfo& over,
-            const sParticlesContext_ particles_context_,
-            sGridContext_ grid_context_
+            const sParticlesContext_ particles_,
+            sGridContext_ grid_
         ) override;
 
         void deposit_mass(
@@ -41,10 +56,17 @@ namespace rrgsim::mesh::rect {
 
     private:
 
-        const rrgsim::common::RectGridInfo& grid_info(
-            const rrgsim::common::sGridContext_& grid_
+        const RectGridInfo& grid_info(
+            const sGridContext_& grid_
         );
 
     };
+
+    inline __device__ __forceinline__
+    size_t cell_index(int i, int j, int k) {
+        return (size_t)i
+            +  (size_t)rect_grid_info_.nx * (size_t)j
+            +  (size_t)rect_grid_info_.nx * rect_grid_info_.nx * (size_t)k;
+    }
 
 } // namespace rrgsim::mesh::rect

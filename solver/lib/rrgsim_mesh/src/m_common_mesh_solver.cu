@@ -1,4 +1,4 @@
-#include "cm_p2mesh.cuh"
+#include "m_common_mesh_solver.cuh"
 #include <co_info_structs.h>
 #include <spdlog/spdlog.h>
 
@@ -76,7 +76,7 @@ namespace rrgsim::mesh {
 
     } // detail
 
-void P2MeshSolver::init_p2mesh_context(
+void MeshSolver::init_context(
     sGridContext_ grid_,
     const sParticlesContext_ particles_
 )
@@ -91,6 +91,10 @@ void P2MeshSolver::init_p2mesh_context(
         }
         return mb_over.value();
     };
+
+    if (false == mb_over.has_value()) {
+        init(grid_);
+    }
 
     if (nullptr == grid_->particles_cell_info_) {
         spdlog::trace("init particles_cell_info_[{}]", over().num_particles);
@@ -122,7 +126,7 @@ void P2MeshSolver::init_p2mesh_context(
 }
 
 
-void P2MeshSolver::convert_particles_to_grid(
+void MeshSolver::convert_particles_to_grid(
     const sParticlesContext_ particles_,
     sGridContext_ grid_
 )
@@ -135,7 +139,7 @@ void P2MeshSolver::convert_particles_to_grid(
         particles_->info.ntotal
     );
 
-    init_p2mesh_context(grid_, particles_);
+    init_context(grid_, particles_);
 
 	grid_->particles_cell_info_.set_zero();
 	grid_->cell_info_.set_zero();

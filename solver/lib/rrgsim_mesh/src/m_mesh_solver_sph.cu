@@ -247,6 +247,54 @@ namespace {
         }
     }
 
+    __global__ void project_real_CIC_spherical_(
+        const real3* __restrict__ particle_pos,
+        const real*  __restrict__ cell_real,
+        real*        __restrict__ particle_real
+    )
+    {
+        const int p = blockIdx.x * blockDim.x + threadIdx.x;
+        if (p >= particles_info_.ntotal) return;
+
+        auto data_CIC = deposit_CIC_spherical_(particle_pos[p]);
+
+        real value = 0;
+
+        #pragma unroll
+        for (int i = 0; i < N_CIC; ++i) {
+            size_t index = data_CIC.indices[i];
+            real weight = data_CIC.weights[i];
+            value += weight * cell_real[index];
+        }
+
+        particle_real[p] = value;
+    }
+
+    __global__ void project_real3_CIC_spherical_(
+        const real3* __restrict__ particle_pos,
+        const real3* __restrict__ cell_real3,
+        real3*       __restrict__ particle_real3
+    )
+    {
+        const int p = blockIdx.x * blockDim.x + threadIdx.x;
+        if (p >= particles_info_.ntotal) return;
+
+        auto data_CIC = deposit_CIC_spherical_(particle_pos[p]);
+
+        real3 value = make_real3(0, 0, 0);
+
+        #pragma unroll
+        for (int i = 0; i < N_CIC; ++i) {
+            size_t index = data_CIC.indices[i];
+            real weight = data_CIC.weights[i];
+            value.x += weight * cell_real3[index].x;
+            value.y += weight * cell_real3[index].y;
+            value.z += weight * cell_real3[index].z;
+        }
+
+        particle_real3[p] = value;
+    }
+
     __global__ void mass_to_density_spherical_(real* cell_rho) {
         const size_t n = (size_t)sph_grid_info_.nr * sph_grid_info_.nt * sph_grid_info_.np;
         for (size_t c = (size_t)blockIdx.x * blockDim.x + threadIdx.x;
@@ -508,19 +556,31 @@ SphMeshSolver::grid_info(
 }
 
 void SphMeshSolver::project_grid_acceleration_on_particles(
-    sGridContext_ grid_context_,
-    sParticlesContext_ particles_context_
+    const sGridContext_ grid_,
+    sParticlesContext_ particles_
 )
 {
-    throw std::runtime_error{ "Not implemented" };
+    auto over = OverInfo::calc(0, particles_->info.ntotal);
+
+	RR::CUDA::CuCall(project_real3_CIC_spherical_, over.particles, over.blocks) (
+		particles_->pos_,
+		grid_->acc_,
+		particles_->acc_
+	);
 }
 
 void SphMeshSolver::project_grid_grav_on_particles(
-    const sGridContext_ grid_context_,
-    sParticlesContext_ particles_context_
+    const sGridContext_ grid_,
+    sParticlesContext_ particles_
 )
 {
-    throw std::runtime_error{ "Not implemented" };
+    auto over = OverInfo::calc(0, particles_->info.ntotal);
+
+	RR::CUDA::CuCall(project_real_CIC_spherical_, over.particles, over.blocks) (
+		particles_->pos_,
+		grid_->grav_curr_,
+		particles_->grav_
+	);
 }
 
 } // namespace rrgsim::mesh::sph

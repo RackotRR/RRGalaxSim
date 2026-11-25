@@ -457,10 +457,7 @@ void RectMeshSolver::project_grid_acceleration_on_particles(
     sParticlesContext_ particles_
 )
 {
-    auto over = OverInfo::calc(
-        0,
-        particles_->info.ntotal
-    );
+    auto over = OverInfo::calc(0, particles_->info.ntotal);
 
 	RR::CUDA::CuCall(project_real3_CIC_rect_, over.particles, over.blocks) (
 		particles_->pos_,
@@ -474,10 +471,7 @@ void RectMeshSolver::project_grid_grav_on_particles(
     sParticlesContext_ particles_
 )
 {
-    auto over = OverInfo::calc(
-        0,
-        particles_->info.ntotal
-    );
+    auto over = OverInfo::calc(0, particles_->info.ntotal);
 
 	RR::CUDA::CuCall(project_real_CIC_rect_, over.particles, over.blocks) (
 		particles_->pos_,

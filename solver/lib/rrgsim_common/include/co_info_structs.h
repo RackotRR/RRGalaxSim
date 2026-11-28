@@ -6,6 +6,7 @@
 namespace rrgsim::common {
 
 #define PI 3.14159265358979323846264338327950288
+#define TWO_PI (2 * PI)
 constexpr int BLOCK_SIZE = 256;
 constexpr int BLOCK_SIZE_IN_3D = 8;
 

@@ -4,6 +4,10 @@
 
 namespace rrgsim::mesh::sph {
 
+using rrgsim::common::cell_center_r_;
+using rrgsim::common::cell_center_theta_;
+using rrgsim::common::coord_rect_to_spherical;
+using rrgsim::common::coord_spherical_to_uniform_;
 using rrgsim::common::particles_info_;
 using rrgsim::common::sph_grid_info_;
 using rrgsim::common::BLOCK_SIZE;
@@ -13,65 +17,6 @@ using rrgsim::common::OverInfo;
 using RR::CUDA::CuDarray;
 
 namespace {
-
-    __device__ __forceinline__
-    real normalize_two_pi(
-        real phi
-    )
-    {
-        static constexpr real TWO_PI = PI * 2;
-        return phi - TWO_PI * std::floor(phi / TWO_PI);
-    }
-
-    // Декартовы координаты в сферические
-    __device__ __forceinline__
-    real3 coord_rect_to_spherical(
-        const real3& p
-    )
-    {
-        using rrgsim::common::sqr;
-
-        const real rxy2 = sqr(p.x) + sqr(p.y);
-        const real r    = sqrt(rxy2 + sqr(p.z));
-
-        // θ ∈ [0, π] — полярный угол (colatitude). atan2 устойчив и при r = 0.
-        const real theta = atan2(sqrt(rxy2), p.z);
-
-        // φ ∈ [0, 2π) - долгота
-        real phi = normalize_two_pi(atan2(p.y, p.x));
-
-        return make_real3(
-            r,
-            theta,
-            phi
-        );
-    }
-
-    // обратное преобразование сферических координат в равномерные [0,1]
-    __device__ __forceinline__
-    real3 coord_spherical_to_uniform(
-        const real3& sph
-    )
-    {
-        const auto& [r, theta, phi] = sph;
-
-        // r = R * x^p → x = (r/R)^(1/p)
-        real xr = r > 0
-            ? pow(r / sph_grid_info_.radius_max, 1 / sph_grid_info_.proj_r_degree)
-            : real(0);
-
-        // θ = π/2 + arcsin(2x − 1)  →  x = (1 − cos θ)/2
-        const real xt = 0.5 * (1 - cos(theta));
-
-        // φ = 2π k / Nφ → k = ⌊φ Nφ / 2π⌋,  с защитой от k == Nφ
-        const real xp = phi / (2 * PI);
-
-        return make_real3(
-            xr,
-            xt,
-            xp
-        );
-    }
 
     __device__ real sph_cell_volume(int ri) {
         using rrgsim::common::cube;
@@ -104,7 +49,7 @@ namespace {
         real3 sph = coord_rect_to_spherical(p);
 
         // ----- Сферические -> Вычислительные [0..1] -----
-        auto [xr, xt, xp] = coord_spherical_to_uniform(sph);
+        auto [xr, xt, xp] = coord_spherical_to_uniform_(sph);
 
         int i = clamp(
             (int)(xr * sph_grid_info_.nr),
@@ -149,7 +94,7 @@ namespace {
         real3 sph = coord_rect_to_spherical(pos);
 
         // ----- Сферические -> Вычислительные [0..1] -----
-        auto [xr, xt, xp] = coord_spherical_to_uniform(sph);
+        auto [xr, xt, xp] = coord_spherical_to_uniform(sph, sph_grid_info_);
 
         // ----- Индексы центров ячеек -----
         //   r, θ, φ — со сдвигом -0.5    (центры в (i+1/2)/N)
@@ -307,19 +252,6 @@ namespace {
         }
     }
 
-    __device__ __forceinline__ real cell_center_r(int i) {
-        // x = (i + 1/2) / Nr,  r = R * x^p
-        const real x = (i + 0.5) / static_cast<real>(sph_grid_info_.nr);
-        return sph_grid_info_.radius_max * pow(x, sph_grid_info_.proj_r_degree);
-    }
-
-    __device__ __forceinline__ real cell_center_theta(int j) {
-        // x = (j + 1/2) / Nt
-        // theta = pi/2 + arcsin(2*x - 1)
-        const real x = (j + 0.5) / static_cast<real>(sph_grid_info_.nt);
-        return 0.5 * PI + asin(2 * x - 1);
-    }
-
     __global__ void calc_acceleration_field_sph_(
         real3* __restrict__ cell_acc,
         const real* __restrict__ cell_phi
@@ -337,8 +269,8 @@ namespace {
 
         const size_t idx = cell_index(i, j, k);
 
-        const real r_i    = cell_center_r(i);
-        const real th_i   = cell_center_theta(j);
+        const real r_i    = cell_center_r_(i);
+        const real th_i   = cell_center_theta_(j);
         const real sin_th = sin(th_i);
 
         // ------------------------------------------------------------
@@ -347,16 +279,16 @@ namespace {
         real dgrav_dr;
 
         if (i == 0) {
-            const real dr = cell_center_r(i + 1) - r_i;
+            const real dr = cell_center_r_(i + 1) - r_i;
             dgrav_dr = (cell_phi[cell_index(i + 1, j, k)] - cell_phi[idx]) / dr;
         }
         else if (i == NR - 1) {
-            const real dr = r_i - cell_center_r(i - 1);
+            const real dr = r_i - cell_center_r_(i - 1);
             dgrav_dr = (cell_phi[idx] - cell_phi[cell_index(i - 1, j, k)]) / dr;
         }
         else {
-            const real hL = r_i - cell_center_r(i - 1);
-            const real hR = cell_center_r(i + 1) - r_i;
+            const real hL = r_i - cell_center_r_(i - 1);
+            const real hR = cell_center_r_(i + 1) - r_i;
 
             const real fm = cell_phi[cell_index(i - 1, j, k)];
             const real f0 = cell_phi[idx];
@@ -372,16 +304,16 @@ namespace {
         real dgrav_dtheta;
 
         if (j == 0) {
-            const real dth = cell_center_theta(j + 1) - th_i;
+            const real dth = cell_center_theta_(j + 1) - th_i;
             dgrav_dtheta = (cell_phi[cell_index(i, j + 1, k)] - cell_phi[idx]) / dth;
         }
         else if (j == NT - 1) {
-            const real dth = th_i - cell_center_theta(j - 1);
+            const real dth = th_i - cell_center_theta_(j - 1);
             dgrav_dtheta = (cell_phi[idx] - cell_phi[cell_index(i, j - 1, k)]) / dth;
         }
         else {
-            const real hL = th_i - cell_center_theta(j - 1);
-            const real hR = cell_center_theta(j + 1) - th_i;
+            const real hL = th_i - cell_center_theta_(j - 1);
+            const real hR = cell_center_theta_(j + 1) - th_i;
 
             const real fm = cell_phi[cell_index(i, j - 1, k)];
             const real f0 = cell_phi[idx];

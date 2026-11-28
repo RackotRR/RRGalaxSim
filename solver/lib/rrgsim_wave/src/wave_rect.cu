@@ -156,7 +156,7 @@ __global__ void wave_diss_iteration_rect_(
         diss += layer_diss(coord(iz));
     }
 
-    // ---------- Коэффициенты схемы (как раньше, без макросов) ----------
+    // ---------- Коэффициенты схемы ----------
     const int  DIM      = 3;
     const real Q        = diss * C * DT * real(0.5);
     const real W        = 1 + Q;
